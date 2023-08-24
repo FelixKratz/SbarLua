@@ -1,0 +1,9 @@
+#!/usr/bin/env lua
+
+os.execute("(git clone https://github.com/FelixKratz/SbarLua.git /tmp/SbarLua && cd /tmp/SbarLua/ && make install && rm -rf /tmp/SbarLua/)")
+
+package.cpath = package.cpath .. ";/Users/" .. os.getenv("USER") .. "/.local/share/sketchybar_lua/?.so"
+
+sbar = require("sketchybar")
+require("init")
+sbar.event_loop()
