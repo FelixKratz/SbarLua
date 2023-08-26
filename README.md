@@ -8,3 +8,84 @@ sketchybar config in LUA which should work out of the box with the current
 SketchyBar version.
 
 Feel free to contribute to this repo.
+
+## LUA Module
+This code in this repository compiles into a lua module which can be
+required from any lua script.
+
+For LUA to actually find the module, it has to reside in a path included in the
+lua cpath (TODO: Install module into the default lua cpath), e.g.:
+```lua
+package.cpath = package.cpath .. ";/Users/" .. os.getenv("USER") .. "/.local/share/sketchybar_lua/?.so"
+```
+
+The module can then be required in a lua script
+```lua
+local sbar = require("sketchybar")
+```
+and used to communicate with SketchyBar.
+
+## LUA API
+### Bar Domain
+```lua
+sbar.bar(<property_table>)
+```
+where the `<property_table>` is a lua table with key value pairs. The possible
+key-value pairs are the same as stated in the sketchybar documentation.
+
+The shell SketchyBar API uses dots to indicate sub-properties, e.g.
+`icon.y_offset=10 icon.width=50`, in this LUA API all dots are substituted by
+sub-tables, i.e. `icon = { y_offset = 10, width = 50 }`.
+
+### Default Domain
+```lua
+sbar.default(<property_table>)
+```
+
+### Add Domain
+```lua
+local item = sbar.add(<type>, <name>, <property_table>)
+```
+where the `<type>` is a string specifying which component to add,
+e.g. "item", "alias", "space", ...
+
+The `<name>` is the identifier of the item and is returned by the add function,
+such that the `local item` can be used in the following to target this item
+with further commands.
+
+### Set Domain
+```lua
+sbar.set(<name>, <property_table>)
+```
+
+### Subscribe Domain
+```lua
+sbar.subscribe(<name>, <event>, <lua_function>)
+```
+where all regular sketchybar events are supported. The `<lua_function>` is
+called when the event occurs and receives one argument, which contains the
+typical sketchybar environment variables, e.g. 
+```lua
+sbar.subscribe(front_app, "front_app_switched", function(env)
+  sbar.set(env.NAME, { label = { string = env.INFO } })
+end)
+```
+
+### Animate Domain
+```lua
+sbar.animate(<curve>, <duration>, <lua_function>)
+```
+where the `<curve>` and `<duration>` arguments are equivalent to those found in
+the sketchybar documentation.
+The lua function given as a third argument shall now contain all commands
+belonging to this animation, i.e. all `set` or `bar` commands that shall be
+animated.
+
+### Query Domain
+```lua
+local info = sbar.query(<item>)
+```
+Regularly the query command would result a JSON containing all the relevant information, here, however, this information is accessible as a LUA table and can be accessed as such, e.g.
+```lua
+local left_padding = sbar.query(front_app).icon.padding_left
+```
