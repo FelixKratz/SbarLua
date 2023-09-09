@@ -18,6 +18,7 @@ local function space_selection(env)
   })
 end
 
+local spaces = {}
 for i = 1, 10, 1 do
   local space = sbar.add("space", "space." .. i, {
     associated_space = i,
@@ -38,15 +39,16 @@ for i = 1, 10, 1 do
       y_offset = -1,
       drawing = false,
     },
-    background = {
-      drawing = true,
-      border_color = colors.bg2,
-    },
   })
 
+  spaces[i] = space
   sbar.subscribe(space, "space_change", space_selection)
   sbar.subscribe(space, "mouse.clicked", mouse_click)
 end
+
+sbar.add("bracket", "spaces.bracket", spaces, {
+  background = { color = colors.bg1, border_color = colors.bg2 }
+})
 
 local space_creator = sbar.add("item", "space_creator", {
   padding_left=10,
