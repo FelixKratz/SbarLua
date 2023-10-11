@@ -44,20 +44,25 @@ sbar.default(<property_table>)
 
 ### Add Domain
 ```lua
-local item = sbar.add(<type>, <name>, <property_table>)
+local item = sbar.add(<type>, <optional: name>, <property_table>)
 ```
 where the `<type>` is a string specifying which component to add,
 e.g. "item", "alias", "space", ...
 
-The `<name>` is the identifier of the item and is returned by the add function,
-such that the `local item` can be used in the following to target this item
-with further commands.
+The `<name>` is the identifier of the item, if no identifier is specified, it
+is generated automatically,
+such that the `local item` can be used in the following to target this
+item with further commands.
 
 Depending on the type there might be additional arguments that can (or must)
 be supplied e.g. if the `type` is `bracket`, the add command takes a list of
 members as a third argument and the property table as the fourth argument.
 
 ### Set Domain
+```lua
+item:set(<property_table>)
+```
+or equivalently
 ```lua
 sbar.set(<name>, <property_table>)
 ```
@@ -66,10 +71,20 @@ sbar.set(<name>, <property_table>)
 ```lua
 sbar.subscribe(<name>, <event(s)>, <lua_function>)
 ```
+or equivalently
+```lua
+item:subscribe(<event(s)>, <lua_function>)
+```
 where all regular sketchybar events are supported. Events can be supplied as a
 single string or alternatively as a table of events. The `<lua_function>` is
 called when the event occurs and receives one argument, which contains the
 typical sketchybar environment variables, e.g. 
+```lua
+front_app:subscribe("front_app_switched", function(env)
+  front_app:set({ label = { string = env.INFO } })
+end)
+```
+or equivalently:
 ```lua
 sbar.subscribe(front_app, "front_app_switched", function(env)
   sbar.set(env.NAME, { label = { string = env.INFO } })

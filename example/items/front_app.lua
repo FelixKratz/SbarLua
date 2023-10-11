@@ -1,4 +1,4 @@
-local front_app = sbar.add("item", "front_app", {
+local front_app = sbar.add("item", {
   icon = {
     drawing = false
   },
@@ -10,10 +10,17 @@ local front_app = sbar.add("item", "front_app", {
   }
 })
 
-sbar.subscribe(front_app, "front_app_switched", function(env)
-  sbar.set(env.NAME, {
+front_app:subscribe("front_app_switched", function(env)
+  front_app:set({
     label = {
       string = env.INFO
     }
   })
+
+  -- Or equivalently:
+  -- sbar.set(env.NAME, {
+  --   label = {
+  --     string = env.INFO
+  --   }
+  -- })
 end)

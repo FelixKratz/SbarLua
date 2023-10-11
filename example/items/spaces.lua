@@ -20,7 +20,7 @@ end
 
 local spaces = {}
 for i = 1, 10, 1 do
-  local space = sbar.add("space", "space." .. i, {
+  local space = sbar.add("space", {
     associated_space = i,
     icon = {
       string = i,
@@ -41,16 +41,16 @@ for i = 1, 10, 1 do
     },
   })
 
-  spaces[i] = space
-  sbar.subscribe(space, "space_change", space_selection)
-  sbar.subscribe(space, "mouse.clicked", mouse_click)
+  spaces[i] = space.name
+  space:subscribe("space_change", space_selection)
+  space:subscribe("mouse.clicked", mouse_click)
 end
 
-sbar.add("bracket", "spaces.bracket", spaces, {
+sbar.add("bracket", spaces, {
   background = { color = colors.bg1, border_color = colors.bg2 }
 })
 
-local space_creator = sbar.add("item", "space_creator", {
+local space_creator = sbar.add("item", {
   padding_left=10,
   padding_right=8,
   icon = {
@@ -64,6 +64,6 @@ local space_creator = sbar.add("item", "space_creator", {
   associated_display = "active",
 })
 
-sbar.subscribe(space_creator, "mouse.clicked", function(_)
+space_creator:subscribe("mouse.clicked", function(_)
   os.execute("yabai -m space --create && sketchybar --trigger space_change")
 end)

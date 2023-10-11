@@ -39,6 +39,7 @@ static char* g_cmd = NULL;
 static uint32_t g_cmd_len = 0;
 static char g_bootstrap_name[64];
 mach_port_t g_port = 0;
+uint32_t g_uid_counter;
 
 static inline void event_server_init(char* bootstrap_name) {
   mach_server_register(&g_mach_server, bootstrap_name);
@@ -131,20 +132,36 @@ int animate(lua_State* state) {
   return 0;
 }
 
+const char* get_name_from_state(lua_State* state) {
+  const char* name;
+  if (lua_type(state, 1) == LUA_TTABLE) {
+    lua_getfield(state, 1, "self");
+    if (lua_isnil(state, -1)) lua_pop(state, 1);
+    lua_getfield(state, 1, "name");
+    name = lua_tostring(state, -1);
+    lua_pop(state, 1);
+  } else {
+    name = lua_tostring(state, 1);
+  }
+  return name;
+}
+
 int set(lua_State* state) {
   if (lua_gettop(state) < 2
       || lua_type(state, -1) != LUA_TTABLE
-      || lua_type(state, -2) != LUA_TSTRING) {
-    char error[] = "[Lua] Error: expecting a string "
-                   "and a table as arguments for 'set'";
+      || (lua_type(state, 1) != LUA_TSTRING)
+          && lua_type(state, 1) != LUA_TTABLE) {
+    char error[] = "[Lua] Error: expecting a "
+                   " table as arguments for 'set'";
     printf("%s\n", error);
     return 0;
   }
   struct stack* stack = stack_create();
   stack_init(stack);
 
+  const char* name = get_name_from_state(state);
+
   parse_kv_table(state, NULL, stack);
-  const char* name = lua_tostring(state, -2);
 
   stack_push(stack, name);
   stack_push(stack, SET);
@@ -152,70 +169,6 @@ int set(lua_State* state) {
   if (response) free(response);
   stack_destroy(stack);
   return 0;
-}
-
-int add(lua_State* state) {
-  if (lua_gettop(state) < 3
-      || lua_type(state, 1) != LUA_TSTRING
-      || lua_type(state, 2) != LUA_TSTRING) {
-    char error[] = "[Lua] Error: expecting at least two string arguments"
-                   "for 'add'";
-    printf("%s\n", error);
-    return 0;
-  }
-
-  struct stack* stack = stack_create();
-  stack_init(stack);
-  const char* type = lua_tostring(state, 1);
-  const char* name = lua_tostring(state, 2);
-
-  if (strcmp(type,"item") == 0
-      || strcmp(type, "alias") == 0
-      || strcmp(type, "space") == 0
-      || strcmp(type, "slider") == 0) {
-    // "Regular" items with name an position
-    const char* position = { "left" };
-    stack_push(stack, position);
-  } else if (strcmp(type, "bracket") == 0) {
-    // A bracket takes a list of member items instead of a position
-    if (lua_type(state, 3) != LUA_TTABLE) {
-      char error[] = "[Lua] Error: expecting a lua table as third argument"
-                     "for 'add', when the type is 'bracket'";
-      printf("%s\n", error);
-      stack_destroy(stack);
-      return 0;
-    }
-
-    lua_pushnil(state);
-    while (lua_next(state, 3)) {
-      const char* member = lua_tostring(state, -1);
-      stack_push(stack, member);
-      lua_pop(state, 1);
-    }
-  } else {
-    char error[] = "[Lua] Error: Item type not supported yet, create case for"
-                    " it in src/sketchybar.c";
-    printf("%s\n", error);
-    stack_destroy(stack);
-    return 0;
-  }
-
-  stack_push(stack, name);
-  stack_push(stack, type);
-  stack_push(stack, ADD);
-  char* response = sketchybar(stack);
-  if (response) free(response);
-  stack_destroy(stack);
-
-  // If a table is presented as the last argument, we parse it as if it
-  // was passed to the set domain.
-  if (lua_type(state, -1) == LUA_TTABLE) {
-    lua_pushstring(state, name);
-    lua_insert(state, -2);
-    set(state);
-  }
-  lua_pushstring(state, name);
-  return 1;
 }
 
 int defaults(lua_State* state) {
@@ -357,15 +310,15 @@ int subscribe(lua_State* state) {
   if (lua_gettop(state) < 3
       || lua_type(state, -1) != LUA_TFUNCTION
       || (lua_type(state, -2) != LUA_TSTRING
-          && lua_type(state, -2) != LUA_TTABLE)
-      || lua_type(state, -3) != LUA_TSTRING  ) {
+          && lua_type(state, -2) != LUA_TTABLE)) {
     char error[] = "[Lua] Error: expecting a string, a string or a table, "
                    "and a function as arguments for 'subscribe'";
 
     printf("%s\n", error);
     return 0;
   }
-  const char* name = lua_tostring(state, -3);
+
+  const char* name = get_name_from_state(state);
 
   if (lua_type(state, 2) == LUA_TSTRING) {
     const char* event = lua_tostring(state, 2);
@@ -383,14 +336,19 @@ int subscribe(lua_State* state) {
 }
 
 int query(lua_State* state) {
-  if (lua_gettop(state) < 1
-      || lua_type(state, -1) != LUA_TSTRING  ) {
-    char error[] = "[Lua] Error: expecting a strings as the only argument for 'query'";
+  if (lua_gettop(state) < 1) {
+    char error[] = "[Lua] Error: expecting a string or item as the only argument for 'query'";
     printf("%s\n", error);
     return 0;
   }
 
-  const char* query = lua_tostring(state, -1);
+  const char* query;
+  if (lua_type(state, 1) == LUA_TTABLE) {
+    query = get_name_from_state(state);
+  } else {
+    query = lua_tostring(state, -1);
+  }
+
   struct stack* stack = stack_create();
   stack_init(stack);
   stack_push(stack, query);
@@ -405,6 +363,92 @@ int query(lua_State* state) {
   }
 
   return 0;
+}
+
+void generate_uid(char* buffer) {
+  snprintf(buffer, 64, "item_%d", g_uid_counter++);
+}
+
+int add(lua_State* state) {
+  if (lua_gettop(state) < 2
+      || lua_type(state, 1) != LUA_TSTRING) {
+    char error[] = "[Lua] Error: expecting at least one string argument "
+                   "for 'add'";
+    printf("%s\n", error);
+    return 0;
+  }
+
+  struct stack* stack = stack_create();
+  stack_init(stack);
+  const char* type = lua_tostring(state, 1);
+
+  char name[64];
+  if (lua_type(state, 2) == LUA_TSTRING) {
+    snprintf(name, 64, "%s", lua_tostring(state, 2));
+  } else {
+    generate_uid(name);
+    lua_pushstring(state, name);
+    lua_insert(state, 2);
+  }
+
+  if (strcmp(type,"item") == 0
+      || strcmp(type, "alias") == 0
+      || strcmp(type, "space") == 0
+      || strcmp(type, "slider") == 0) {
+    // "Regular" items with name an position
+    const char* position = { "left" };
+    stack_push(stack, position);
+  } else if (strcmp(type, "bracket") == 0) {
+    // A bracket takes a list of member items instead of a position
+    if (lua_type(state, 3) != LUA_TTABLE) {
+      char error[] = "[Lua] Error: expecting a lua table as third argument"
+                     "for 'add', when the type is 'bracket'";
+      printf("%s\n", error);
+      stack_destroy(stack);
+      return 0;
+    }
+
+    lua_pushnil(state);
+    while (lua_next(state, 3)) {
+      const char* member = lua_tostring(state, -1);
+      stack_push(stack, member);
+      lua_pop(state, 1);
+    }
+  } else {
+    char error[] = "[Lua] Error: Item type not supported yet, create case for"
+                    " it in src/sketchybar.c";
+    printf("%s\n", error);
+    stack_destroy(stack);
+    return 0;
+  }
+
+  stack_push(stack, name);
+  stack_push(stack, type);
+  stack_push(stack, ADD);
+  char* response = sketchybar(stack);
+  if (response) free(response);
+  stack_destroy(stack);
+
+  // If a table is presented as the last argument, we parse it as if it
+  // was passed to the set domain.
+  if (lua_type(state, -1) == LUA_TTABLE) {
+    lua_pushstring(state, name);
+    lua_insert(state, -2);
+    while (lua_gettop(state) > 2) { lua_remove(state, -3); }
+    set(state);
+  }
+
+  lua_newtable(state);
+  lua_pushstring(state, "name");
+  lua_pushstring(state, name);
+  lua_settable(state,-3);
+  lua_pushstring(state, "set");
+  lua_pushcfunction(state, set);
+  lua_settable(state,-3);
+  lua_pushstring(state, "subscribe");
+  lua_pushcfunction(state, subscribe);
+  lua_settable(state,-3);
+  return 1;
 }
 
 int event_loop(lua_State* state) {

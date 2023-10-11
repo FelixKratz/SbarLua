@@ -1,17 +1,17 @@
 local whitelist = { ["Spotify"] = true,
                     ["Music"] = true   };
 
-local media = sbar.add("item", "media", {
+local media = sbar.add("item", {
   icon = { drawing = false },
   position = "center",
   updates = true,
 })
 
-sbar.subscribe(media, "media_change", function(env)
+media:subscribe("media_change", function(env)
   if whitelist[env.INFO.app] then
-    sbar.set(media, {
+    media:set({
       drawing = (env.INFO.state == "playing") and true or false,
-      label = env.INFO.title
+      label = env.INFO.artist .. ": " .. env.INFO.title
     })
   end
 end)

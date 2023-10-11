@@ -2,7 +2,7 @@
 
 -- This is only needed once to install the sketchybar module
 -- (or for an update of the module)
-os.execute("(git clone https://github.com/FelixKratz/SbarLua.git /tmp/SbarLua && cd /tmp/SbarLua/ && make install && rm -rf /tmp/SbarLua/)")
+-- os.execute("(git clone https://github.com/FelixKratz/SbarLua.git /tmp/SbarLua && cd /tmp/SbarLua/ && make install && rm -rf /tmp/SbarLua/)")
 
 -- Add the sketchybar module to the package cpath (the module could be
 -- installed into the default search path then this would not be needed)
@@ -13,6 +13,8 @@ sbar = require("sketchybar")
 
 -- Load the init.lua file
 require("init")
+
+os.execute("sketchybar --hotload on")
 
 -- Run the event loop of the sketchybar module (without this there will be no
 -- bi-directional communication between the lua module and sketchybar)

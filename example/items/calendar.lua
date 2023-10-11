@@ -1,4 +1,4 @@
-local cal = sbar.add("item", "calendar", {
+local cal = sbar.add("item", {
   icon = {
     padding_right = 0,
     font = {
@@ -17,7 +17,9 @@ local cal = sbar.add("item", "calendar", {
 local function update()
   local date = os.date("%a. %d %b.")
   local time = os.date("%H:%M")
-  sbar.set(cal, { icon = date, label = time })
+  cal:set({ icon = date, label = time })
 end
 
-sbar.subscribe(cal, {"routine", "forced"}, update)
+cal:subscribe("routine", update)
+cal:subscribe("forced", update)
+
