@@ -158,3 +158,14 @@ void parse_kv_table(lua_State* state, char* prefix, struct stack* stack) {
     lua_pop(state, 1);
   }
 }
+
+void parse_table_values_to_stack(lua_State* state, int index, struct stack* stack) {
+  lua_pushvalue(state, index);
+  lua_pushnil(state);
+  while (lua_next(state, -2)) {
+    lua_pushvalue(state, -2);
+    const char* value = lua_tostring(state, -2);
+    stack_push(stack, value);
+    lua_pop(state, 2);
+  }
+}

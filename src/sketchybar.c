@@ -293,27 +293,14 @@ void callback_function(env env) {
   }
 }
 
-int subscribe(lua_State* state) {
-  if (lua_gettop(state) < 3
-      || lua_type(state, -1) != LUA_TFUNCTION
-      || lua_type(state, -2) != LUA_TSTRING
-      || lua_type(state, -3) != LUA_TSTRING  ) {
-    char error[] = "[Lua] Error: expecting two strings and a function as "
-                   "arguments for 'subscribe'";
-
-    printf("%s\n", error);
-    return 0;
-  }
-  const char* name = lua_tostring(state, -3);
-  const char* event = lua_tostring(state, -2);
-
+void subscribe_register_event(lua_State* state, const char* name, const char* event) {
+  struct stack* stack = stack_create();
   char mach_helper[strlen(g_bootstrap_name) + 16];
   snprintf(mach_helper, strlen(g_bootstrap_name) + 16, "mach_helper=%s",
                                                         g_bootstrap_name);
   char empy_script[] = { "script=" };
   char event_op[] = { "event" };
 
-  struct stack* stack = stack_create();
   stack_init(stack);
   stack_push(stack, mach_helper);
   stack_push(stack, empy_script);
@@ -360,6 +347,34 @@ int subscribe(lua_State* state) {
   response = sketchybar(stack);
   stack_destroy(stack);
   if (response) free(response);
+}
+
+int subscribe(lua_State* state) {
+  if (lua_gettop(state) < 3
+      || lua_type(state, -1) != LUA_TFUNCTION
+      || (lua_type(state, -2) != LUA_TSTRING
+          && lua_type(state, -2) != LUA_TTABLE)
+      || lua_type(state, -3) != LUA_TSTRING  ) {
+    char error[] = "[Lua] Error: expecting a string, a string or a table, "
+                   "and a function as arguments for 'subscribe'";
+
+    printf("%s\n", error);
+    return 0;
+  }
+  const char* name = lua_tostring(state, -3);
+
+  if (lua_type(state, 2) == LUA_TSTRING) {
+    const char* event = lua_tostring(state, -2);
+    subscribe_register_event(state, name, event);
+  } else if (lua_type(state, 2) == LUA_TTABLE) {
+    struct stack* stack = stack_create();
+    stack_init(stack);
+    parse_table_values_to_stack(state, 2, stack);
+    for (int i = 0; i < stack->num_values; i++) {
+      subscribe_register_event(state, name, stack->value[i]);
+    }
+    stack_destroy(stack);
+  }
   return 0;
 }
 

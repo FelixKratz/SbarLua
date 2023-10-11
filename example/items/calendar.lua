@@ -20,6 +20,4 @@ local function update()
   sbar.set(cal, { icon = date, label = time })
 end
 
-sbar.subscribe(cal, "routine", update)
-sbar.subscribe(cal, "forced", update)
-
+sbar.subscribe(cal, {"routine", "forced"}, update)

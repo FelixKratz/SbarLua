@@ -41,6 +41,4 @@ local function battery_update()
   sbar.set(battery, { icon = icon })
 end
 
-sbar.subscribe(battery, "routine", battery_update)
-sbar.subscribe(battery, "power_source_change", battery_update)
-sbar.subscribe(battery, "system_woke", battery_update)
+sbar.subscribe(battery, {"routine", "power_source_change", "system_woke"}, battery_update)

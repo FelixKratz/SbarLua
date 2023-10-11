@@ -10,5 +10,6 @@
 #include "stack.h"
 
 void parse_kv_table(lua_State* state, char* prefix, struct stack* stack);
+void parse_table_values_to_stack(lua_State* state, int index, struct stack* stack);
 bool json_to_lua_table(lua_State* state, const char* json_str);
 

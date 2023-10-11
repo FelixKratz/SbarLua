@@ -53,6 +53,10 @@ The `<name>` is the identifier of the item and is returned by the add function,
 such that the `local item` can be used in the following to target this item
 with further commands.
 
+Depending on the type there might be additional arguments that can (or must)
+be supplied e.g. if the `type` is `bracket`, the add command takes a list of
+members as a third argument and the property table as the fourth argument.
+
 ### Set Domain
 ```lua
 sbar.set(<name>, <property_table>)
@@ -60,9 +64,10 @@ sbar.set(<name>, <property_table>)
 
 ### Subscribe Domain
 ```lua
-sbar.subscribe(<name>, <event>, <lua_function>)
+sbar.subscribe(<name>, <event(s)>, <lua_function>)
 ```
-where all regular sketchybar events are supported. The `<lua_function>` is
+where all regular sketchybar events are supported. Events can be supplied as a
+single string or alternatively as a table of events. The `<lua_function>` is
 called when the event occurs and receives one argument, which contains the
 typical sketchybar environment variables, e.g. 
 ```lua
