@@ -103,9 +103,13 @@ animated.
 
 ### Query Domain
 ```lua
-local info = sbar.query(<item>)
+local info = item:query()
+```
+or equivalently
+```lua
+local info = sbar.query(<name>)
 ```
 Regularly the query command would result a JSON containing all the relevant information, here, however, this information is accessible as a LUA table and can be accessed as such, e.g.
 ```lua
-local left_padding = sbar.query(front_app).icon.padding_left
+local left_padding = front_app:query().icon.padding_left
 ```

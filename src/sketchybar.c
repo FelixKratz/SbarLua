@@ -448,6 +448,9 @@ int add(lua_State* state) {
   lua_pushstring(state, "subscribe");
   lua_pushcfunction(state, subscribe);
   lua_settable(state,-3);
+  lua_pushstring(state, "query");
+  lua_pushcfunction(state, query);
+  lua_settable(state,-3);
   return 1;
 }
 

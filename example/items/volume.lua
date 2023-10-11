@@ -71,7 +71,7 @@ local function animate_slider_width(width)
 end
 
 volume_icon:subscribe("mouse.clicked", function()
-  if tonumber(sbar.query(volume_slider).slider.width) > 0 then
+  if tonumber(volume_slider:query().slider.width) > 0 then
     animate_slider_width(0)
   else
     animate_slider_width(100)
