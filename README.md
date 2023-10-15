@@ -13,6 +13,12 @@ Feel free to contribute to this repo.
 This code in this repository compiles into a lua module which can be
 required from any lua script.
 
+Install and update it with the command (this will build the lua module from
+source and place it in `$USER/.local/share/sketchybar_lua/`):
+```bash
+(git clone https://github.com/FelixKratz/SbarLua.git /tmp/SbarLua && cd /tmp/SbarLua/ && make install && rm -rf /tmp/SbarLua/)
+```
+
 For LUA to actually find the module, it has to reside in a path included in the
 lua cpath (TODO: Install module into the default lua cpath), e.g.:
 ```lua

@@ -48,6 +48,7 @@ static inline void event_server_init(char* bootstrap_name) {
 static inline void event_server_run(mach_handler event_handler) {
   mach_server_begin(&g_mach_server, event_handler);
 }
+
 static char* sketchybar(struct stack* stack) {
   uint32_t message_length;
   char* message = stack_flatten_ttb(stack, &message_length);
@@ -395,7 +396,7 @@ int add(lua_State* state) {
       || strcmp(type, "alias") == 0
       || strcmp(type, "space") == 0
       || strcmp(type, "slider") == 0) {
-    // "Regular" items with name an position
+    // "Regular" items with name and position
     const char* position = { "left" };
     stack_push(stack, position);
   } else if (strcmp(type, "bracket") == 0) {
@@ -438,6 +439,7 @@ int add(lua_State* state) {
     set(state);
   }
 
+  // Return the item element as a table
   lua_newtable(state);
   lua_pushstring(state, "name");
   lua_pushstring(state, name);
