@@ -175,6 +175,8 @@ static inline char* mach_send_message(mach_port_t port, char* message, uint32_t 
   }
 
   mach_msg_destroy(&buffer.message.header);
+  mach_port_mod_refs(task, response_port, MACH_PORT_RIGHT_RECEIVE, -1);
+  mach_port_deallocate(task, response_port);
 
   return rsp;
 }
