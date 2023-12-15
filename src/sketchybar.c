@@ -20,6 +20,7 @@ lua_State* g_state;
 #define SUBSCRIBE "--subscribe"
 #define UPDATE    "--update"
 #define QUERY     "--query"
+#define HOTLOAD   "--hotload"
 
 #define MACH_HELPER_FMT "git.relay.sketchybar%d"
 
@@ -469,6 +470,28 @@ int event_loop(lua_State* state) {
   return 0;
 }
 
+int hotload(lua_State* state) {
+  if (lua_gettop(state) != 1
+      || !lua_isboolean(state, 1)) {
+    char error[] = "[Lua] Error: expecting a boolean as the only argument for 'hotload'";
+    printf("%s\n", error);
+    return 0;
+  }
+  g_state = state;
+  struct stack* stack = stack_create();
+  stack_init(stack);
+  if (lua_toboolean(state, 1)) {
+    stack_push(stack, "on");
+  } else {
+    stack_push(stack, "off");
+  }
+  stack_push(stack, HOTLOAD);
+  char* response = sketchybar(stack);
+  if (response) free(response);
+  stack_destroy(stack);
+  return 0;
+}
+
 static const struct luaL_Reg functions[] = {
     { "add", add },
     { "set", set },
@@ -478,6 +501,7 @@ static const struct luaL_Reg functions[] = {
     { "subscribe", subscribe },
     { "query", query },
     { "event_loop", event_loop },
+    { "hotload", hotload },
     {NULL, NULL}
 };
 
@@ -509,5 +533,8 @@ int luaopen_sketchybar(lua_State* L) {
 
   lua_pushcfunction(L, event_loop);
   lua_setfield(L, -2, "update");
+
+  lua_pushcfunction(L, hotload);
+  lua_setfield(L, -2, "hotload");
   return 1;
 }

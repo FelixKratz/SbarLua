@@ -14,7 +14,7 @@ sbar = require("sketchybar")
 -- Load the init.lua file
 require("init")
 
-os.execute("sketchybar --hotload on")
+sbar.hotload(true)
 
 -- Run the event loop of the sketchybar module (without this there will be no
 -- bi-directional communication between the lua module and sketchybar)
