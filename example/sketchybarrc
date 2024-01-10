@@ -11,6 +11,9 @@ package.cpath = package.cpath .. ";/Users/" .. os.getenv("USER") .. "/.local/sha
 -- Require the sketchybar module
 sbar = require("sketchybar")
 
+-- Specify which bar (only necessary if not default: sketchybar)
+-- sbar.set_bar_name("bottom_bar")
+
 -- Load the init.lua file
 require("init")
 
