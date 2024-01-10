@@ -41,6 +41,7 @@ static uint32_t g_cmd_len = 0;
 static char g_bootstrap_name[64];
 mach_port_t g_port = 0;
 uint32_t g_uid_counter;
+char g_bs_lookup[256] = "git.felix.sketchybar";
 
 static inline void event_server_init(char* bootstrap_name) {
   mach_server_register(&g_mach_server, bootstrap_name);
@@ -66,13 +67,13 @@ static char* sketchybar(struct stack* stack) {
     message_length = g_cmd_len;
   }
 
-  if (!g_port) g_port = mach_get_bs_port("git.felix.sketchybar");
+  if (!g_port) g_port = mach_get_bs_port(g_bs_lookup);
   char message_format[message_length + 1];
   memcpy(message_format, message, message_length);
   message_format[message_length] = '\0';
   char* response = mach_send_message(g_port, message_format, message_length + 1);
   if (!response) {
-    g_port = mach_get_bs_port("git.felix.sketchybar");
+    g_port = mach_get_bs_port(g_bs_lookup);
     response = mach_send_message(g_port, message_format, message_length + 1);
   }
   return response;
@@ -492,6 +493,21 @@ int hotload(lua_State* state) {
   return 0;
 }
 
+int set_bar_name(lua_State* state) {
+  if (lua_gettop(state) < 1
+      || lua_type(state, 1) != LUA_TSTRING) {
+    char error[] = "[Lua] Error: expecting a string argument "
+                   "for 'set_bar_name'";
+    printf("%s\n", error);
+    return 0;
+  }
+
+  const char* name = lua_tostring(state, 1);
+  g_port = 0;
+  snprintf(g_bs_lookup, 256, "git.felix.%s", name);
+  return 0;
+}
+
 static const struct luaL_Reg functions[] = {
     { "add", add },
     { "set", set },
@@ -502,6 +518,7 @@ static const struct luaL_Reg functions[] = {
     { "query", query },
     { "event_loop", event_loop },
     { "hotload", hotload },
+    { "set_bar_name", set_bar_name },
     {NULL, NULL}
 };
 

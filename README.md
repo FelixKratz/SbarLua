@@ -119,3 +119,12 @@ Regularly the query command would result a JSON containing all the relevant info
 ```lua
 local left_padding = front_app:query().icon.padding_left
 ```
+### Multiple Bars
+If you are using muliple sketchybar instances, you can target the lua module to
+interact with another sketchybar instance by providing the instance name right
+after requiring the module like this:
+```bash
+sbar = require("sketchybar")
+sbar.set_bar_name("bottom_bar")
+```
+where `bottom_bar` is an example bar name.
