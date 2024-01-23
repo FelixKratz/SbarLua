@@ -396,6 +396,8 @@ int add(lua_State* state) {
 
   if (strcmp(type,"item") == 0
       || strcmp(type, "alias") == 0
+      || strcmp(type, "event") == 0
+      || strcmp(type, "graph") == 0
       || strcmp(type, "space") == 0
       || strcmp(type, "slider") == 0) {
     // "Regular" items with name and position
