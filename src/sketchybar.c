@@ -423,9 +423,7 @@ int add(lua_State* state) {
         return 0;
       } else {
         // Else process DistributionNotification:
-        char notif[64];
-        snprintf(notif, 64, "%s", lua_tostring(state, 3));
-        stack_push(stack, notif);
+        stack_push(stack, lua_tostring(state, 3));
       }
     }
 
@@ -534,13 +532,13 @@ int trigger(lua_State *state) {
   struct stack *stack = stack_create();
   stack_init(stack);
 
-  char event[100];
-  snprintf(event, 100, "%s", lua_tostring(state, 1));
+  const char* event = lua_tostring(state, 1);
 
   if (lua_gettop(state) > 1 && lua_type(state, 2) != LUA_TTABLE) {
     char error[] = "[Lua] Error: expecting a table as the second argument for "
                    "'trigger'";
     printf("%s\n", error);
+    stack_destroy(stack);
     return 0;
   } else if (lua_gettop(state) > 1) {
     // Parse potential ENV variables onto stack:
