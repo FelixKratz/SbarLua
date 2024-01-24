@@ -21,6 +21,7 @@ lua_State* g_state;
 #define UPDATE    "--update"
 #define QUERY     "--query"
 #define HOTLOAD   "--hotload"
+#define TRIGGER   "--trigger"
 
 #define MACH_HELPER_FMT "git.relay.sketchybar%d"
 
@@ -367,7 +368,6 @@ int query(lua_State* state) {
 
   return 0;
 }
-
 void generate_uid(char* buffer) {
   snprintf(buffer, 64, "item_%d", g_uid_counter++);
 }
@@ -385,6 +385,7 @@ int add(lua_State* state) {
   stack_init(stack);
   const char* type = lua_tostring(state, 1);
 
+
   char name[64];
   if (lua_type(state, 2) == LUA_TSTRING) {
     snprintf(name, 64, "%s", lua_tostring(state, 2));
@@ -401,11 +402,36 @@ int add(lua_State* state) {
     // "Regular" items with name and position
     const char* position = { "left" };
     stack_push(stack, position);
+  } else if (strcmp(type, "event") == 0) {
+    // Ensure event name is a string:
+    if (lua_type(state, 2) != LUA_TSTRING) {
+      char error[] = "[Lua] Error: expecting a 'string' as second argument"
+                     " for 'add' when the type is 'event'";
+      printf("%s\n", error);
+      stack_destroy(stack);
+      return 0;
+    }
+
+    // Check number of opts to see if we have an optional Notif String:
+    if (lua_gettop(state) == 3) {
+      // Check if the 3rd option is a string.
+      if (lua_type(state, 3) != LUA_TSTRING) {
+        char error[] = "[Lua] Error: expecting a 'string' as third argument"
+                       " for 'add' when the type is 'event'";
+        printf("%s\n", error);
+        stack_destroy(stack);
+        return 0;
+      } else {
+        // Else process DistributionNotification:
+        stack_push(stack, lua_tostring(state, 3));
+      }
+    }
+
   } else if (strcmp(type, "bracket") == 0) {
     // A bracket takes a list of member items instead of a position
     if (lua_type(state, 3) != LUA_TTABLE) {
       char error[] = "[Lua] Error: expecting a lua table as third argument"
-                     "for 'add', when the type is 'bracket'";
+                     " for 'add', when the type is 'bracket'";
       printf("%s\n", error);
       stack_destroy(stack);
       return 0;
@@ -493,6 +519,42 @@ int hotload(lua_State* state) {
   return 0;
 }
 
+int trigger(lua_State *state) {
+  // Check for event name:
+  if (lua_gettop(state) < 1 || lua_type(state, 1) != LUA_TSTRING) {
+    char error[] = "[Lua] Error: expecting at least one string as an argument "
+                   "for 'trigger'";
+    printf("%s\n", error);
+    return 0;
+  }
+
+  // Push the event name onto the stack:
+  struct stack *stack = stack_create();
+  stack_init(stack);
+
+  const char* event = lua_tostring(state, 1);
+
+  if (lua_gettop(state) > 1 && lua_type(state, 2) != LUA_TTABLE) {
+    char error[] = "[Lua] Error: expecting a table as the second argument for "
+                   "'trigger'";
+    printf("%s\n", error);
+    stack_destroy(stack);
+    return 0;
+  } else if (lua_gettop(state) > 1) {
+    // Parse potential ENV variables onto stack:
+    parse_kv_table(state, NULL, stack);
+  }
+
+  // No errors, lets parse the trigger state:
+  stack_push(stack, event);
+  stack_push(stack, TRIGGER);
+  char *response = sketchybar(stack);
+  stack_destroy(stack);
+  if (response) free(response);
+
+  return 0;
+}
+
 int set_bar_name(lua_State* state) {
   if (lua_gettop(state) < 1
       || lua_type(state, 1) != LUA_TSTRING) {
@@ -519,6 +581,7 @@ static const struct luaL_Reg functions[] = {
     { "event_loop", event_loop },
     { "hotload", hotload },
     { "set_bar_name", set_bar_name },
+    { "trigger", trigger },
     {NULL, NULL}
 };
 
@@ -553,5 +616,9 @@ int luaopen_sketchybar(lua_State* L) {
 
   lua_pushcfunction(L, hotload);
   lua_setfield(L, -2, "hotload");
+
+  lua_pushcfunction(L, trigger);
+  lua_setfield(L, -2, "trigger");
+
   return 1;
 }

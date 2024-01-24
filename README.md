@@ -62,7 +62,8 @@ item with further commands.
 
 Depending on the type there might be additional arguments that can (or must)
 be supplied e.g. if the `type` is `bracket`, the add command takes a list of
-members as a third argument and the property table as the fourth argument.
+members as a third argument and the property table as the fourth argument. If
+the `type` is `event` the `<property_table>` is replaced by an optional `NSDistributedNotificationCenter` notification name.
 
 ### Set Domain
 ```lua
@@ -95,6 +96,12 @@ or equivalently:
 sbar.subscribe(front_app, "front_app_switched", function(env)
   sbar.set(env.NAME, { label = { string = env.INFO } })
 end)
+```
+
+### Trigger Domain
+
+```lua
+sbar.trigger(<event>, <optional: env_table>)
 ```
 
 ### Animate Domain
