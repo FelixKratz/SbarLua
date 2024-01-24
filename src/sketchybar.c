@@ -424,7 +424,6 @@ int add(lua_State* state) {
         // Else process DistributionNotification:
         char notif[64];
         snprintf(notif, 64, "%s", lua_tostring(state, 3));
-        printf("\tThird value: %s\n", notif);
         stack_push(stack, notif);
       }
     }
