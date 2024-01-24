@@ -21,6 +21,7 @@ lua_State* g_state;
 #define UPDATE    "--update"
 #define QUERY     "--query"
 #define HOTLOAD   "--hotload"
+#define TRIGGER   "--trigger"
 
 #define MACH_HELPER_FMT "git.relay.sketchybar%d"
 
@@ -520,6 +521,42 @@ int hotload(lua_State* state) {
   return 0;
 }
 
+int trigger(lua_State *state) {
+  // Check for event name:
+  if (lua_gettop(state) < 1 || lua_type(state, 1) != LUA_TSTRING) {
+    char error[] = "[Lua] Error: expecting at least one string as an argument "
+                   "for 'trigger'";
+    printf("%s\n", error);
+    return 0;
+  }
+
+  // Push the event name onto the stack:
+  struct stack *stack = stack_create();
+  stack_init(stack);
+
+  char event[100];
+  snprintf(event, 100, "%s", lua_tostring(state, 1));
+
+  if (lua_gettop(state) > 1 && lua_type(state, 2) != LUA_TTABLE) {
+    char error[] = "[Lua] Error: expecting a table as the second argument for "
+                   "'trigger'";
+    printf("%s\n", error);
+    return 0;
+  } else if (lua_gettop(state) > 1) {
+    // Parse potential ENV variables onto stack:
+    parse_kv_table(state, NULL, stack);
+  }
+
+  // No errors, lets parse the trigger state:
+  stack_push(stack, event);
+  stack_push(stack, TRIGGER);
+  char *response = sketchybar(stack);
+  stack_destroy(stack);
+  if (response) free(response);
+
+  return 0;
+}
+
 int set_bar_name(lua_State* state) {
   if (lua_gettop(state) < 1
       || lua_type(state, 1) != LUA_TSTRING) {
@@ -546,6 +583,7 @@ static const struct luaL_Reg functions[] = {
     { "event_loop", event_loop },
     { "hotload", hotload },
     { "set_bar_name", set_bar_name },
+    { "trigger", trigger },
     {NULL, NULL}
 };
 
@@ -580,5 +618,9 @@ int luaopen_sketchybar(lua_State* L) {
 
   lua_pushcfunction(L, hotload);
   lua_setfield(L, -2, "hotload");
+
+  lua_pushcfunction(L, trigger);
+  lua_setfield(L, -2, "trigger");
+
   return 1;
 }
