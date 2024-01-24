@@ -367,7 +367,6 @@ int query(lua_State* state) {
 
   return 0;
 }
-
 void generate_uid(char* buffer) {
   snprintf(buffer, 64, "item_%d", g_uid_counter++);
 }
@@ -385,6 +384,7 @@ int add(lua_State* state) {
   stack_init(stack);
   const char* type = lua_tostring(state, 1);
 
+
   char name[64];
   if (lua_type(state, 2) == LUA_TSTRING) {
     snprintf(name, 64, "%s", lua_tostring(state, 2));
@@ -396,18 +396,44 @@ int add(lua_State* state) {
 
   if (strcmp(type,"item") == 0
       || strcmp(type, "alias") == 0
-      || strcmp(type, "event") == 0
-      || strcmp(type, "graph") == 0
       || strcmp(type, "space") == 0
       || strcmp(type, "slider") == 0) {
     // "Regular" items with name and position
     const char* position = { "left" };
     stack_push(stack, position);
+  } else if (strcmp(type, "event") == 0) {
+    // Ensure event name is a string:
+    if (lua_type(state, 2) != LUA_TSTRING) {
+      char error[] = "[Lua] Error: expecting a 'string' as second argument"
+                     " for 'add' when the type is 'event'";
+      printf("%s\n", error);
+      stack_destroy(stack);
+      return 0;
+    }
+
+    // Check number of opts to see if we have an optional Notif String:
+    if (lua_gettop(state) == 3) {
+      // Check if the 3rd option is a string.
+      if (lua_type(state, 3) != LUA_TSTRING) {
+        char error[] = "[Lua] Error: expecting a 'string' as third argument"
+                       " for 'add' when the type is 'event'";
+        printf("%s\n", error);
+        stack_destroy(stack);
+        return 0;
+      } else {
+        // Else process DistributionNotification:
+        char notif[64];
+        snprintf(notif, 64, "%s", lua_tostring(state, 3));
+        printf("\tThird value: %s\n", notif);
+        stack_push(stack, notif);
+      }
+    }
+
   } else if (strcmp(type, "bracket") == 0) {
     // A bracket takes a list of member items instead of a position
     if (lua_type(state, 3) != LUA_TTABLE) {
       char error[] = "[Lua] Error: expecting a lua table as third argument"
-                     "for 'add', when the type is 'bracket'";
+                     " for 'add', when the type is 'bracket'";
       printf("%s\n", error);
       stack_destroy(stack);
       return 0;
