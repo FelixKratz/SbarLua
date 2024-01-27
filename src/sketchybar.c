@@ -250,7 +250,7 @@ void callback_function(env env) {
   }
 }
 
-void subscribe_register_event(lua_State* state, const char* name, const char* event) {
+void subscribe_register_event(const char* name, const char* event, int callback_ref) {
   struct stack* stack = stack_create();
   char mach_helper[strlen(g_bootstrap_name) + 16];
   snprintf(mach_helper, strlen(g_bootstrap_name) + 16, "mach_helper=%s",
@@ -287,16 +287,10 @@ void subscribe_register_event(lua_State* state, const char* name, const char* ev
     struct callback* callback = malloc(sizeof(struct callback));
     m_clone(callback->name, name);
     m_clone(callback->event, event);
-    lua_pushvalue(state, -1);
-    callback->callback_ref = luaL_ref(state, LUA_REGISTRYINDEX);
-    lua_pop(state, 1);
-
+    callback->callback_ref = callback_ref;
     g_callbacks.callbacks[g_callbacks.num_callbacks - 1] = callback;
   } else {
-    lua_pushvalue(state, -1);
-    g_callbacks.callbacks[index]->callback_ref = luaL_ref(state,
-                                                          LUA_REGISTRYINDEX);
-    lua_pop(state, 1);
+    g_callbacks.callbacks[index]->callback_ref = callback_ref;
   }
 
   stack = stack_create();
@@ -323,16 +317,19 @@ int subscribe(lua_State* state) {
   }
 
   const char* name = get_name_from_state(state);
+  lua_pushvalue(state, -1);
+  int callback_ref = luaL_ref(state, LUA_REGISTRYINDEX);
+  lua_pop(state, 1);
 
   if (lua_type(state, 2) == LUA_TSTRING) {
     const char* event = lua_tostring(state, 2);
-    subscribe_register_event(state, name, event);
+    subscribe_register_event(name, event, callback_ref);
   } else if (lua_type(state, 2) == LUA_TTABLE) {
     struct stack* stack = stack_create();
     stack_init(stack);
     parse_table_values_to_stack(state, 2, stack);
     for (int i = 0; i < stack->num_values; i++) {
-      subscribe_register_event(state, name, stack->value[i]);
+      subscribe_register_event(name, stack->value[i], callback_ref);
     }
     stack_destroy(stack);
   }
