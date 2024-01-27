@@ -7,6 +7,8 @@
 #include <unistd.h>
 #include "stack.h"
 
+// #include "pix_logging.h"
+
 #define CMD_SUCCESS 1
 #define CMD_FAILURE 0
 
@@ -43,6 +45,18 @@ static char g_bootstrap_name[64];
 mach_port_t g_port = 0;
 uint32_t g_uid_counter;
 char g_bs_lookup[256] = "git.felix.sketchybar";
+
+static char *luat_to_string(int type) {
+  switch (type) {
+    case LUA_TNIL: return "nil"; break;
+    case LUA_TBOOLEAN: return "boolean"; break;
+    case LUA_TNUMBER: return "number"; break;
+    case LUA_TSTRING: return "string"; break;
+    case LUA_TTABLE: return "table"; break;
+    case LUA_TFUNCTION: return "function"; break;
+    default: return "unmapped type"; break;
+  }
+}
 
 static inline void event_server_init(char* bootstrap_name) {
   mach_server_register(&g_mach_server, bootstrap_name);
@@ -426,6 +440,46 @@ int add(lua_State* state) {
         stack_push(stack, lua_tostring(state, 3));
       }
     }
+  } else if (strcmp(type, "graph") == 0) {
+
+    //Ensure number of arguments is what graph needs.
+    if (lua_gettop(state) < 3) {
+      char error[] = "[Lua] Error: expecting at least 3 arguments for 'add' when "
+                      "the type is 'graph'";
+      printf("%s\n", error);
+      return 0;
+    } else if (lua_type(state, 2) != LUA_TSTRING || 
+               lua_type(state,3) != LUA_TNUMBER) {
+      char error[] = "[Lua] Error: expecting a 'string' and 'number' for 'add' "
+                     "when argument is 'graph'.";
+      printf("%s. Found '%s' and '%s'\n", error, 
+             luat_to_string(lua_type(state, 2)), 
+             luat_to_string(lua_type(state, 3)));
+      return 0;
+    } else if (lua_gettop(state) == 4 && lua_type(state, 4) != LUA_TTABLE) {
+      char error[] = "[Lua] Error: expecting a 'table' as fourth argument "
+                     "for 'add' when the type is 'graph'";
+      printf("%s. Found '%s'\n", error, luat_to_string(lua_type(state, 4)));
+      return 0;
+    }
+
+    // Everything is good, process graph
+    // Extract the width of the graph:
+    const int width = lua_tointeger(state, 3);
+    char width_str[4];
+    snprintf(width_str, 4, "%d", width);
+    stack_push(stack, width_str);
+
+    // Set the position for the graph by default:
+    const char *position = { "left" };
+    stack_push(stack, position);
+
+    // // ===================
+    // p_info("name: %s", name);
+    // p_info("type: %s", type);
+    // p_info("Position: %s", position);
+    // p_info("Width: %s", width_str);
+    // // ===================
 
   } else if (strcmp(type, "bracket") == 0) {
     // A bracket takes a list of member items instead of a position
