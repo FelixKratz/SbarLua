@@ -387,6 +387,40 @@ void generate_uid(char* buffer) {
   snprintf(buffer, 64, "item_%d", g_uid_counter++);
 }
 
+int push(lua_State *state) {
+  // Ensure push is in a valid state:
+  if (lua_gettop(state) < 2) {
+    char error[] = "[Lua] Error: expecting at least two arguments for 'push'";
+    printf("%s. Received %d\n", error, lua_gettop(state));
+    return 0;
+  }
+  if (lua_type(state, 1) != LUA_TSTRING && lua_type(state, 1) != LUA_TTABLE) {
+    char error[] = "[Lua] Error: expecting a 'string' or a 'table' as the first "
+                   "argument for 'push'";
+    printf("%s. Found '%s'\n", error, luat_to_string(lua_type(state, 1)));
+    return 0;
+  } else if (lua_type(state, 2) != LUA_TTABLE) {
+    char error[] = "[Lua] Error: expecting a 'table' as the second argument for 'push'";
+    printf("%s. Found '%s'\n", error, luat_to_string(lua_type(state, 2)));
+  }
+
+  // Technically this method will work regardless, so all we need to do 
+  // is ensure a valid input state before we reach this part:
+  struct stack *stack = stack_create();
+  stack_init(stack);
+
+  const char *name = get_name_from_state(state);
+  parse_table_values_to_stack(state, 2, stack);
+
+  stack_push(stack, name);
+  stack_push(stack, PUSH);
+  char *response = sketchybar(stack);
+  stack_destroy(stack);
+  if (response) free(response);
+
+  return 1;
+}
+
 int add(lua_State* state) {
   if (lua_gettop(state) < 2
       || lua_type(state, 1) != LUA_TSTRING) {
@@ -549,6 +583,9 @@ int add(lua_State* state) {
   lua_pushstring(state, "query");
   lua_pushcfunction(state, query);
   lua_settable(state,-3);
+  lua_pushstring(state, "push");
+  lua_pushcfunction(state, push);
+  lua_settable(state,-3);
   return 1;
 }
 
@@ -623,45 +660,6 @@ int trigger(lua_State *state) {
   return 0;
 }
 
-int push(lua_State *state) {
-  // We need at least two arguments:
-  if (lua_gettop(state) < 2) {
-    char error[] = "[Lua] Error: expecting at least two arguments for 'push'";
-    printf("%s\n", error);
-    return 0;
-  } else if (lua_type(state, 2) != LUA_TTABLE) {
-    char error[] = "[Lua] Error: expecting a table as the second argument for "
-                   "'push'";
-    printf("%s. Found '%s'\n", error, luat_to_string(lua_type(state, 2)));
-    return 0;
-  }
-
-  struct stack *stack = stack_create();
-  stack_init(stack);
-  
-  // Check if its a table and unpack?
-  const char *name = lua_tostring(state, 1);
-  p_info("Name: %s", name);
-  
-  // Parse push values:
-  lua_pushnil(state);
-  while (lua_next(state, 2)) {
-    const char* value= lua_tostring(state, -1);
-    p_info("VALUE: %s", value);
-    stack_push(stack, value);
-    lua_pop(state, 1);
-  }
-  
-  // sketchybar --push $NAME 0.1 0.2 0.3 0.4 0.5 in reverse?
-  stack_push(stack, name);
-  stack_push(stack, PUSH);
-  char *response = sketchybar(stack);
-  p_err("%s", response);
-  stack_destroy(stack);
-  if (response) free(response);
-
-  return 1;
-}
 
 int set_bar_name(lua_State* state) {
   if (lua_gettop(state) < 1
