@@ -567,6 +567,24 @@ int set_bar_name(lua_State* state) {
   return 0;
 }
 
+int exec(lua_State* state) {
+  if (lua_gettop(state) < 1
+      || lua_type(state, 1) != LUA_TSTRING) {
+    char error[] = "[Lua] Error: expecting a string argument "
+                   "for 'exec'";
+    printf("%s\n", error);
+    return 0;
+  }
+
+  const char* command = lua_tostring(state, 1);
+
+  int pid = fork();
+  if (pid != 0) return 0;
+
+  char *exec[] = { "/usr/bin/env", "sh", "-c", (char*)command, NULL };
+  exit(execvp(exec[0], exec));
+}
+
 static const struct luaL_Reg functions[] = {
     { "add", add },
     { "set", set },
@@ -579,6 +597,7 @@ static const struct luaL_Reg functions[] = {
     { "hotload", hotload },
     { "set_bar_name", set_bar_name },
     { "trigger", trigger },
+    { "exec", exec },
     {NULL, NULL}
 };
 
@@ -616,6 +635,9 @@ int luaopen_sketchybar(lua_State* L) {
 
   lua_pushcfunction(L, trigger);
   lua_setfield(L, -2, "trigger");
+
+  lua_pushcfunction(L, exec);
+  lua_setfield(L, -2, "exec");
 
   return 1;
 }
