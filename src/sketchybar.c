@@ -7,8 +7,6 @@
 #include <unistd.h>
 #include "stack.h"
 
-#include "pix_logging.h"
-
 #define CMD_SUCCESS 1
 #define CMD_FAILURE 0
 
