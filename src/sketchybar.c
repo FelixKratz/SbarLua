@@ -476,58 +476,29 @@ int add(lua_State* state) {
       }
     }
   } else if (strcmp(type, "graph") == 0) {
-    
-    // PIXTODO: Make the graph name optional - split logic paths as required.
-    // sbbar.add("graph", 75, { } )
-    // sbbar.add("graph", "graph_name", 75, { } )
-    // Graph should work without a name so minimum arguments can be 2.
-    if (lua_gettop(state) < 2) {
-      char error[] = "[Lua] Error: expecting at least 2 arguments for 'add' when "
+    if (lua_gettop(state) < 3) {
+      char error[] = "[Lua] Error: expecting at least 3 arguments for 'add' when "
                      " the type is 'graph'";
       printf("%s. Recieved: %d\n", error, lua_gettop(state));
       return 0;
-    }
-
-    p_info("State 1: %s", lua_tostring(state, 1));
-    p_info("State 2: %s", lua_tostring(state, 2));
-    p_info("State 3: %s", lua_tostring(state, 3));
-    p_info("State 4: %s", lua_tostring(state, 4));
-    p_info("Num Ops: %d", lua_gettop(state));
-
-    // PIXNOTE: Is this logic redundant because it will generate a name 
-    // at the start regardless, so the width will always be the 3rd argument?
-    // meaning it always runs the else if?
-
-    // We have a graph name to add.
-    if (lua_type(state, 2) == LUA_TSTRING && lua_gettop(state) > 2) {
-      // Width will be the 3rd argument now
-      p_info("Running with Width as 3rd arg");
-      stack_push(stack, lua_tostring(state, 3));
-    } else if (lua_type(state, 2) == LUA_TNUMBER) {
-      // We have no graph name to add.
-      // Width is the second argument.
-      p_info("Running with Width as 2nd arg");
-      stack_push(stack, lua_tostring(state, 2));
-    } else {
-      // Invalid branch.
-      char error[] = "[Lua] Error: expexting either a 'string' and 3 total arguments"
-                     " or 'number' and 2 total arguments for 'add' when type is 'graph'";
-      printf("%s. Recieved %d args with type %s\n", error, 
-             lua_gettop(state), luat_to_string(lua_type(state, 2)));
+    } else if (lua_type(state, 3) != LUA_TNUMBER) {
+      char error[] = "[Lua] Error: expecting a 'number' for the 3rd argument "
+                     "'add' when type is 'graph'"; 
+      printf("%s. Found %s\n", error, luat_to_string(lua_type(state, 3)));
+      return 0;
+    } else if (lua_type(state, 4) != LUA_TTABLE) {
+      char error[] = "[Lua] Error: expecting a 'table' for the 4th argument "
+                     "'add' when type is 'graph'"; 
+      printf("%s. Found %s\n", error, luat_to_string(lua_type(state, 3)));
       return 0;
     }
+    
+    // Push the width to the stack
+    stack_push(stack, lua_tostring(state, 3));
 
     // Set the position for the graph by default:
     const char *position = { "left" };
     stack_push(stack, position);
-
-    // // ===================
-    // p_info("name: %s", name);
-    // p_info("type: %s", type);
-    // p_info("Position: %s", position);
-    // p_info("Width: %s", lua_tostring(state, 2));
-    // p_info("Width: %s", lua_tostring(state, 3));
-    // // ===================
 
   } else if (strcmp(type, "bracket") == 0) {
     // A bracket takes a list of member items instead of a position
