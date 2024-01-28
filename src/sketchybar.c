@@ -7,7 +7,7 @@
 #include <unistd.h>
 #include "stack.h"
 
-// #include "pix_logging.h"
+#include "pix_logging.h"
 
 #define CMD_SUCCESS 1
 #define CMD_FAILURE 0
@@ -24,6 +24,7 @@ lua_State* g_state;
 #define QUERY     "--query"
 #define HOTLOAD   "--hotload"
 #define TRIGGER   "--trigger"
+#define PUSH      "--push"
 
 #define MACH_HELPER_FMT "git.relay.sketchybar%d"
 
@@ -48,13 +49,13 @@ char g_bs_lookup[256] = "git.felix.sketchybar";
 
 static char *luat_to_string(int type) {
   switch (type) {
-    case LUA_TNIL: return "nil"; break;
-    case LUA_TBOOLEAN: return "boolean"; break;
-    case LUA_TNUMBER: return "number"; break;
-    case LUA_TSTRING: return "string"; break;
-    case LUA_TTABLE: return "table"; break;
+    case LUA_TNIL:      return "nil";      break;
+    case LUA_TBOOLEAN:  return "boolean";  break;
+    case LUA_TNUMBER:   return "number";   break;
+    case LUA_TSTRING:   return "string";   break;
+    case LUA_TTABLE:    return "table";    break;
     case LUA_TFUNCTION: return "function"; break;
-    default: return "unmapped type"; break;
+    default:            return "unmapped"; break;
   }
 }
 
@@ -441,7 +442,9 @@ int add(lua_State* state) {
       }
     }
   } else if (strcmp(type, "graph") == 0) {
-
+    
+    // PIXTODO: Make the graph name optional - split logic paths as required.
+    
     //Ensure number of arguments is what graph needs.
     if (lua_gettop(state) < 3) {
       char error[] = "[Lua] Error: expecting at least 3 arguments for 'add' when "
@@ -609,6 +612,47 @@ int trigger(lua_State *state) {
   return 0;
 }
 
+int push(lua_State *state) {
+  // We need at least two arguments:
+  if (lua_gettop(state) < 2) {
+    char error[] = "[Lua] Error: expecting at least two arguments for 'push'";
+    printf("%s\n", error);
+    return 0;
+  } else if (lua_type(state, 2) != LUA_TTABLE) {
+    char error[] = "[Lua] Error: expecting a table as the second argument for "
+                   "'push'";
+    printf("%s. Found '%s'\n", error, luat_to_string(lua_type(state, 2)));
+    return 0;
+  }
+
+  struct stack *stack = stack_create();
+  stack_init(stack);
+  
+  // Get the target of the push: -- RENAME to NAME to be consistent.
+  const char *target = lua_tostring(state, 1);
+  p_info("Target: %s", target);
+  
+  // Parse push values:
+  lua_pushnil(state);
+  p_info("Atempting next");
+  while (lua_next(state, 2)) {
+    const char* value= lua_tostring(state, -1);
+    p_info("VALUE: %s", value);
+    // const float value = lua_tonumber(state, -1);
+    stack_push(stack, value);
+    lua_pop(state, 1);
+  }
+  
+  stack_push(stack, target);
+  stack_push(stack, PUSH);
+  char *response = sketchybar(stack);
+  p_err("%s", response);
+  stack_destroy(stack);
+  if (response) free(response);
+
+  return 1;
+}
+
 int set_bar_name(lua_State* state) {
   if (lua_gettop(state) < 1
       || lua_type(state, 1) != LUA_TSTRING) {
@@ -636,6 +680,7 @@ static const struct luaL_Reg functions[] = {
     { "hotload", hotload },
     { "set_bar_name", set_bar_name },
     { "trigger", trigger },
+    { "push", push},
     {NULL, NULL}
 };
 
@@ -673,6 +718,9 @@ int luaopen_sketchybar(lua_State* L) {
 
   lua_pushcfunction(L, trigger);
   lua_setfield(L, -2, "trigger");
+
+  lua_pushcfunction(L, push);
+  lua_setfield(L, -2, "push");
 
   return 1;
 }
