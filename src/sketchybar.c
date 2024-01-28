@@ -444,34 +444,44 @@ int add(lua_State* state) {
   } else if (strcmp(type, "graph") == 0) {
     
     // PIXTODO: Make the graph name optional - split logic paths as required.
-    
-    //Ensure number of arguments is what graph needs.
-    if (lua_gettop(state) < 3) {
-      char error[] = "[Lua] Error: expecting at least 3 arguments for 'add' when "
-                      "the type is 'graph'";
-      printf("%s\n", error);
-      return 0;
-    } else if (lua_type(state, 2) != LUA_TSTRING || 
-               lua_type(state,3) != LUA_TNUMBER) {
-      char error[] = "[Lua] Error: expecting a 'string' and 'number' for 'add' "
-                     "when argument is 'graph'.";
-      printf("%s. Found '%s' and '%s'\n", error, 
-             luat_to_string(lua_type(state, 2)), 
-             luat_to_string(lua_type(state, 3)));
-      return 0;
-    } else if (lua_gettop(state) == 4 && lua_type(state, 4) != LUA_TTABLE) {
-      char error[] = "[Lua] Error: expecting a 'table' as fourth argument "
-                     "for 'add' when the type is 'graph'";
-      printf("%s. Found '%s'\n", error, luat_to_string(lua_type(state, 4)));
+    // sbbar.add("graph", 75, { } )
+    // sbbar.add("graph", "graph_name", 75, { } )
+    // Graph should work without a name so minimum arguments can be 2.
+    if (lua_gettop(state) < 2) {
+      char error[] = "[Lua] Error: expecting at least 2 arguments for 'add' when "
+                     " the type is 'graph'";
+      printf("%s. Recieved: %d\n", error, lua_gettop(state));
       return 0;
     }
 
-    // Everything is good, process graph
-    // Extract the width of the graph:
-    const int width = lua_tointeger(state, 3);
-    char width_str[4];
-    snprintf(width_str, 4, "%d", width);
-    stack_push(stack, width_str);
+    p_info("State 1: %s", lua_tostring(state, 1));
+    p_info("State 2: %s", lua_tostring(state, 2));
+    p_info("State 3: %s", lua_tostring(state, 3));
+    p_info("State 4: %s", lua_tostring(state, 4));
+    p_info("Num Ops: %d", lua_gettop(state));
+
+    // PIXNOTE: Is this logic redundant because it will generate a name 
+    // at the start regardless, so the width will always be the 3rd argument?
+    // meaning it always runs the else if?
+
+    // We have a graph name to add.
+    if (lua_type(state, 2) == LUA_TSTRING && lua_gettop(state) > 2) {
+      // Width will be the 3rd argument now
+      p_info("Running with Width as 3rd arg");
+      stack_push(stack, lua_tostring(state, 3));
+    } else if (lua_type(state, 2) == LUA_TNUMBER) {
+      // We have no graph name to add.
+      // Width is the second argument.
+      p_info("Running with Width as 2nd arg");
+      stack_push(stack, lua_tostring(state, 2));
+    } else {
+      // Invalid branch.
+      char error[] = "[Lua] Error: expexting either a 'string' and 3 total arguments"
+                     " or 'number' and 2 total arguments for 'add' when type is 'graph'";
+      printf("%s. Recieved %d args with type %s\n", error, 
+             lua_gettop(state), luat_to_string(lua_type(state, 2)));
+      return 0;
+    }
 
     // Set the position for the graph by default:
     const char *position = { "left" };
@@ -481,7 +491,8 @@ int add(lua_State* state) {
     // p_info("name: %s", name);
     // p_info("type: %s", type);
     // p_info("Position: %s", position);
-    // p_info("Width: %s", width_str);
+    // p_info("Width: %s", lua_tostring(state, 2));
+    // p_info("Width: %s", lua_tostring(state, 3));
     // // ===================
 
   } else if (strcmp(type, "bracket") == 0) {
@@ -628,22 +639,21 @@ int push(lua_State *state) {
   struct stack *stack = stack_create();
   stack_init(stack);
   
-  // Get the target of the push: -- RENAME to NAME to be consistent.
-  const char *target = lua_tostring(state, 1);
-  p_info("Target: %s", target);
+  // Check if its a table and unpack?
+  const char *name = lua_tostring(state, 1);
+  p_info("Name: %s", name);
   
   // Parse push values:
   lua_pushnil(state);
-  p_info("Atempting next");
   while (lua_next(state, 2)) {
     const char* value= lua_tostring(state, -1);
     p_info("VALUE: %s", value);
-    // const float value = lua_tonumber(state, -1);
     stack_push(stack, value);
     lua_pop(state, 1);
   }
   
-  stack_push(stack, target);
+  // sketchybar --push $NAME 0.1 0.2 0.3 0.4 0.5 in reverse?
+  stack_push(stack, name);
   stack_push(stack, PUSH);
   char *response = sketchybar(stack);
   p_err("%s", response);
