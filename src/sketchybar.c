@@ -413,7 +413,7 @@ int push(lua_State *state) {
   stack_destroy(stack);
   if (response) free(response);
 
-  return 1;
+  return 0;
 }
 
 int add(lua_State* state) {
