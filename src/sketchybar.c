@@ -22,6 +22,7 @@ lua_State* g_state;
 #define QUERY     "--query"
 #define HOTLOAD   "--hotload"
 #define TRIGGER   "--trigger"
+#define PUSH      "--push"
 
 #define MACH_HELPER_FMT "git.relay.sketchybar%d"
 
@@ -43,6 +44,18 @@ static char g_bootstrap_name[64];
 mach_port_t g_port = 0;
 uint32_t g_uid_counter;
 char g_bs_lookup[256] = "git.felix.sketchybar";
+
+static char *luat_to_string(int type) {
+  switch (type) {
+    case LUA_TNIL:      return "nil";      break;
+    case LUA_TBOOLEAN:  return "boolean";  break;
+    case LUA_TNUMBER:   return "number";   break;
+    case LUA_TSTRING:   return "string";   break;
+    case LUA_TTABLE:    return "table";    break;
+    case LUA_TFUNCTION: return "function"; break;
+    default:            return "unmapped"; break;
+  }
+}
 
 static inline void event_server_init(char* bootstrap_name) {
   mach_server_register(&g_mach_server, bootstrap_name);
@@ -369,6 +382,40 @@ void generate_uid(char* buffer) {
   snprintf(buffer, 64, "item_%d", g_uid_counter++);
 }
 
+int push(lua_State *state) {
+  // Ensure push is in a valid state:
+  if (lua_gettop(state) < 2) {
+    char error[] = "[Lua] Error: expecting at least two arguments for 'push'";
+    printf("%s. Received %d\n", error, lua_gettop(state));
+    return 0;
+  }
+  if (lua_type(state, 1) != LUA_TSTRING && lua_type(state, 1) != LUA_TTABLE) {
+    char error[] = "[Lua] Error: expecting a 'string' or a 'table' as the first "
+                   "argument for 'push'";
+    printf("%s. Found '%s'\n", error, luat_to_string(lua_type(state, 1)));
+    return 0;
+  } else if (lua_type(state, 2) != LUA_TTABLE) {
+    char error[] = "[Lua] Error: expecting a 'table' as the second argument for 'push'";
+    printf("%s. Found '%s'\n", error, luat_to_string(lua_type(state, 2)));
+  }
+
+  // Technically this method will work regardless, so all we need to do 
+  // is ensure a valid input state before we reach this part:
+  struct stack *stack = stack_create();
+  stack_init(stack);
+
+  const char *name = get_name_from_state(state);
+  parse_table_values_to_stack(state, 2, stack);
+
+  stack_push(stack, name);
+  stack_push(stack, PUSH);
+  char *response = sketchybar(stack);
+  stack_destroy(stack);
+  if (response) free(response);
+
+  return 0;
+}
+
 int add(lua_State* state) {
   if (lua_gettop(state) < 2
       || lua_type(state, 1) != LUA_TSTRING) {
@@ -423,6 +470,30 @@ int add(lua_State* state) {
         stack_push(stack, lua_tostring(state, 3));
       }
     }
+  } else if (strcmp(type, "graph") == 0) {
+    if (lua_gettop(state) < 3) {
+      char error[] = "[Lua] Error: expecting at least 3 arguments for 'add' when "
+                     " the type is 'graph'";
+      printf("%s. Recieved: %d\n", error, lua_gettop(state));
+      return 0;
+    } else if (lua_type(state, 3) != LUA_TNUMBER) {
+      char error[] = "[Lua] Error: expecting a 'number' for the 3rd argument "
+                     "'add' when type is 'graph'"; 
+      printf("%s. Found %s\n", error, luat_to_string(lua_type(state, 3)));
+      return 0;
+    } else if (lua_type(state, 4) != LUA_TTABLE) {
+      char error[] = "[Lua] Error: expecting a 'table' for the 4th argument "
+                     "'add' when type is 'graph'"; 
+      printf("%s. Found %s\n", error, luat_to_string(lua_type(state, 3)));
+      return 0;
+    }
+    
+    // Push the width to the stack
+    stack_push(stack, lua_tostring(state, 3));
+
+    // Set the position for the graph by default:
+    const char *position = { "left" };
+    stack_push(stack, position);
 
   } else if (strcmp(type, "bracket") == 0) {
     // A bracket takes a list of member items instead of a position
@@ -477,6 +548,9 @@ int add(lua_State* state) {
   lua_settable(state,-3);
   lua_pushstring(state, "query");
   lua_pushcfunction(state, query);
+  lua_settable(state,-3);
+  lua_pushstring(state, "push");
+  lua_pushcfunction(state, push);
   lua_settable(state,-3);
   return 1;
 }
@@ -552,6 +626,7 @@ int trigger(lua_State *state) {
   return 0;
 }
 
+
 int set_bar_name(lua_State* state) {
   if (lua_gettop(state) < 1
       || lua_type(state, 1) != LUA_TSTRING) {
@@ -597,6 +672,7 @@ static const struct luaL_Reg functions[] = {
     { "hotload", hotload },
     { "set_bar_name", set_bar_name },
     { "trigger", trigger },
+    { "push", push},
     { "exec", exec },
     {NULL, NULL}
 };
@@ -635,6 +711,9 @@ int luaopen_sketchybar(lua_State* L) {
 
   lua_pushcfunction(L, trigger);
   lua_setfield(L, -2, "trigger");
+
+  lua_pushcfunction(L, push);
+  lua_setfield(L, -2, "push");
 
   lua_pushcfunction(L, exec);
   lua_setfield(L, -2, "exec");
