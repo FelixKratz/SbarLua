@@ -497,11 +497,6 @@ int add(lua_State* state) {
                      "the type is 'graph'";
       printf("%s. Recieved: %d\n", error, lua_gettop(state));
       stack_destroy(stack);
-  } else if (strcmp(type, "graph") == 0) {
-    if (lua_gettop(state) < 3) {
-      char error[] = "[Lua] Error: expecting at least 3 arguments for 'add' when "
-                     " the type is 'graph'";
-      printf("%s. Recieved: %d\n", error, lua_gettop(state));
       return 0;
     } else if (lua_type(state, 3) != LUA_TNUMBER) {
       char error[] = "[Lua] Error: expecting a 'number' for the 3rd argument "
