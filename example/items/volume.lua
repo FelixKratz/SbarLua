@@ -1,7 +1,7 @@
 local colors = require("colors")
 local icons = require("icons")
 
-local volume_slider = sbar.add("slider", {
+local volume_slider = sbar.add("slider", 100, {
   position = "right",
   updates = true,
   label = { drawing = false },
