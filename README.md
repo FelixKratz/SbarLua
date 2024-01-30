@@ -50,11 +50,11 @@ sbar.default(<property_table>)
 
 ### Add Domain
 ```lua
-local item = sbar.add(<type>, <optional: name>, <property_table>)
+local item = sbar.add(<"item", "space", "alias">, <optional: name>, <property_table>)
+local bracket = sbar.add("bracket", <optional: name>, <member_table>, <property_table>)
+local slider = sbar.add(<"slider", "graph">, <optional: name>, <width>, <property_table>)
+local event = sbar.add("event", <name>, <optional: NSDistributedNotification>)
 ```
-where the `<type>` is a string specifying which component to add,
-e.g. "item", "alias", "space", ...
-
 The `<name>` is the identifier of the item, if no identifier is specified, it
 is generated automatically,
 such that the `local item` can be used in the following to target this
@@ -126,6 +126,14 @@ Regularly the query command would result a JSON containing all the relevant info
 ```lua
 local left_padding = front_app:query().icon.padding_left
 ```
+
+### Push Domain
+```lua
+graph:push(<float_table>)
+```
+You can push values to a `graph` with the push domain. The `float` values of
+the table should be between 0 and 1.
+
 ### Multiple Bars
 If you are using muliple sketchybar instances, you can target the lua module to
 interact with another sketchybar instance by providing the instance name right
