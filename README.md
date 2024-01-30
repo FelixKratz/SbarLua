@@ -69,16 +69,8 @@ the `type` is `event` the `<property_table>` is replaced by an optional `NSDistr
 ```lua
 item:set(<property_table>)
 ```
-or equivalently
-```lua
-sbar.set(<name>, <property_table>)
-```
 
 ### Subscribe Domain
-```lua
-sbar.subscribe(<name>, <event(s)>, <lua_function>)
-```
-or equivalently
 ```lua
 item:subscribe(<event(s)>, <lua_function>)
 ```
@@ -89,12 +81,6 @@ typical sketchybar environment variables, e.g.
 ```lua
 front_app:subscribe("front_app_switched", function(env)
   front_app:set({ label = { string = env.INFO } })
-end)
-```
-or equivalently:
-```lua
-sbar.subscribe(front_app, "front_app_switched", function(env)
-  sbar.set(env.NAME, { label = { string = env.INFO } })
 end)
 ```
 
@@ -117,10 +103,6 @@ animated.
 ### Query Domain
 ```lua
 local info = item:query()
-```
-or equivalently
-```lua
-local info = sbar.query(<name>)
 ```
 Regularly the query command would result a JSON containing all the relevant information, here, however, this information is accessible as a LUA table and can be accessed as such, e.g.
 ```lua
