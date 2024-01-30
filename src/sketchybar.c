@@ -441,8 +441,7 @@ int add(lua_State* state) {
 
   if (strcmp(type,"item") == 0
       || strcmp(type, "alias") == 0
-      || strcmp(type, "space") == 0
-      || strcmp(type, "slider") == 0) {
+      || strcmp(type, "space") == 0) {
     // "Regular" items with name and position
     const char* position = { "left" };
     stack_push(stack, position);
@@ -470,21 +469,46 @@ int add(lua_State* state) {
         stack_push(stack, lua_tostring(state, 3));
       }
     }
+  } else if (strcmp(type, "slider") == 0) {
+    if (lua_gettop(state) < 3) {
+      char error[] = "[Lua] Error: expecting at least 3 arguments for 'add' when "
+                     "the type is 'slider'";
+      printf("%s. Recieved: %d\n", error, lua_gettop(state));
+      stack_destroy(stack);
+      return 0;
+    } else if (lua_type(state, 3) != LUA_TNUMBER) {
+      char error[] = "[Lua] Error: expecting a 'number' for the 3rd argument "
+                     "'add' when type is 'slider'"; 
+      printf("%s. Found %s\n", error, luat_to_string(lua_type(state, 3)));
+      stack_destroy(stack);
+      return 0;
+    }
+
+    // Push the slider width to the stack 
+    stack_push(stack, lua_tostring(state, 3));
+
+    // And the position as always.
+    const char *position = { "left" };
+    stack_push(stack, position);
+
   } else if (strcmp(type, "graph") == 0) {
     if (lua_gettop(state) < 3) {
       char error[] = "[Lua] Error: expecting at least 3 arguments for 'add' when "
-                     " the type is 'graph'";
+                     "the type is 'graph'";
       printf("%s. Recieved: %d\n", error, lua_gettop(state));
+      stack_destroy(stack);
       return 0;
     } else if (lua_type(state, 3) != LUA_TNUMBER) {
       char error[] = "[Lua] Error: expecting a 'number' for the 3rd argument "
                      "'add' when type is 'graph'"; 
       printf("%s. Found %s\n", error, luat_to_string(lua_type(state, 3)));
+      stack_destroy(stack);
       return 0;
     } else if (lua_type(state, 4) != LUA_TTABLE) {
       char error[] = "[Lua] Error: expecting a 'table' for the 4th argument "
                      "'add' when type is 'graph'"; 
       printf("%s. Found %s\n", error, luat_to_string(lua_type(state, 3)));
+      stack_destroy(stack);
       return 0;
     }
     
