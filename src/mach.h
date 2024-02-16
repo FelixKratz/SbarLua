@@ -5,6 +5,7 @@
 #include <pthread.h>
 #include <stdio.h>
 #include <unistd.h>
+#include <CoreFoundation/CoreFoundation.h>
 
 typedef char* env;
 
@@ -227,21 +228,39 @@ static inline bool mach_server_register(struct mach_server* mach_server, char* b
   return true;
 }
 
+void mach_message_callback(CFMachPortRef port, void* message, CFIndex size, void* context) {
+  struct mach_server* mach_server = context;
+  struct mach_buffer buffer;
+  buffer.message = *(struct mach_message*)message;
+
+  if (!buffer.message.descriptor.address) return;
+  if (*(char*)buffer.message.descriptor.address == 'k'
+      && buffer.message.descriptor.size == 2) {
+    exit(0);
+  }
+  mach_server->handler((env)buffer.message.descriptor.address);
+  mach_msg_destroy(&buffer.message.header);
+}
+
 static inline bool mach_server_begin(struct mach_server* mach_server, mach_handler handler) {
   mach_server->handler = handler;
   mach_server->is_running = true;
-  struct mach_buffer buffer;
-  while (mach_server->is_running) {
-    mach_receive_message(mach_server->port, &buffer, true);
-    if (getppid() == 1) exit(0);
-    if (!buffer.message.descriptor.address) continue;
-    if (*(char*)buffer.message.descriptor.address == 'k'
-        && buffer.message.descriptor.size == 2) {
-      exit(0);
-    }
-    mach_server->handler((env)buffer.message.descriptor.address);
-    mach_msg_destroy(&buffer.message.header);
-  }
+
+  CFMachPortContext context = {0, (void*)mach_server};
+
+  CFMachPortRef cf_mach_port = CFMachPortCreateWithPort(NULL,
+                                                        mach_server->port,
+                                                        mach_message_callback,
+                                                        &context,
+                                                        false                );
+
+  CFRunLoopSourceRef source = CFMachPortCreateRunLoopSource(NULL,
+                                                            cf_mach_port,
+                                                            0            );
+
+  CFRunLoopAddSource(CFRunLoopGetMain(), source, kCFRunLoopDefaultMode);
+  CFRelease(source);
+  CFRelease(cf_mach_port);
 
   return true;
 }

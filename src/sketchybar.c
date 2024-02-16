@@ -3,8 +3,9 @@
 #include <lauxlib.h>
 #include <lua.h>
 #include <lualib.h>
-#include <stdio.h>
-#include <unistd.h>
+#include <CoreFoundation/CoreFoundation.h>
+#include <stdint.h>
+
 #include "stack.h"
 
 #define CMD_SUCCESS 1
@@ -55,14 +56,6 @@ static char *luat_to_string(int type) {
     case LUA_TFUNCTION: return "function"; break;
     default:            return "unmapped"; break;
   }
-}
-
-static inline void event_server_init(char* bootstrap_name) {
-  mach_server_register(&g_mach_server, bootstrap_name);
-}
-
-static inline void event_server_run(mach_handler event_handler) {
-  mach_server_begin(&g_mach_server, event_handler);
 }
 
 static char* sketchybar(struct stack* stack) {
@@ -579,6 +572,11 @@ int add(lua_State* state) {
   return 1;
 }
 
+
+static void orphan_check() {
+  if (getppid() == 1) exit(0);
+}
+
 int event_loop(lua_State* state) {
   g_state = state;
   struct stack* stack = stack_create();
@@ -588,7 +586,18 @@ int event_loop(lua_State* state) {
   stack_destroy(stack);
   if (response) free(response);
   alarm(0);
-  event_server_run(callback_function);
+  mach_server_begin(&g_mach_server, callback_function);
+  CFRunLoopTimerRef orphan_timer
+     = CFRunLoopTimerCreate(kCFAllocatorDefault,
+                            CFAbsoluteTimeGetCurrent() + 1.0,
+                            1.0,
+                            0,
+                            0,
+                            orphan_check,
+                            NULL                             );
+  CFRunLoopAddTimer(CFRunLoopGetMain(), orphan_timer, kCFRunLoopDefaultMode);
+  CFRelease(orphan_timer);
+  CFRunLoopRun();
   return 0;
 }
 
@@ -684,6 +693,53 @@ int exec(lua_State* state) {
   exit(execvp(exec[0], exec));
 }
 
+void delay_callback(CFRunLoopTimerRef timer, void* context) {
+  int callback_ref = (int)(intptr_t)context;
+
+  lua_rawgeti(g_state, LUA_REGISTRYINDEX, callback_ref);
+  transaction_create();
+  int error = lua_pcall(g_state, 0, 0, 0);
+
+  if (error && lua_gettop(g_state)) {
+    printf("[!] Lua: %s\n", lua_tostring(g_state, -1));
+  }
+
+  char* response = transaction_commit();
+  if (response) free(response);
+}
+
+int delay(lua_State* state) {
+  if (lua_gettop(state) < 2
+      || lua_type(state, 1) != LUA_TNUMBER
+      || lua_type(state, 2) != LUA_TFUNCTION) {
+    char error[] = "[Lua] Error: expecting a number and a function as"
+                   " arguments for 'delay'";
+    printf("%s\n", error);
+    return 0;
+  }
+
+  lua_pushvalue(state, 2);
+  int callback_ref = luaL_ref(state, LUA_REGISTRYINDEX);
+
+  lua_gettop(state);
+
+  double duration = lua_tonumber(state, 1);
+  CFRunLoopTimerContext context = { 0 };
+  context.info = (void*)(intptr_t)callback_ref;
+  CFRunLoopTimerRef timer
+     = CFRunLoopTimerCreate(kCFAllocatorDefault,
+                            CFAbsoluteTimeGetCurrent() + duration,
+                            0,
+                            0,
+                            0,
+                            delay_callback,
+                            &context                              );
+
+  CFRunLoopAddTimer(CFRunLoopGetMain(), timer, kCFRunLoopDefaultMode);
+  CFRelease(timer);
+  return 0;
+}
+
 static const struct luaL_Reg functions[] = {
     { "add", add },
     { "set", set },
@@ -698,6 +754,7 @@ static const struct luaL_Reg functions[] = {
     { "trigger", trigger },
     { "push", push},
     { "exec", exec },
+    { "delay", delay },
     {NULL, NULL}
 };
 
@@ -706,7 +763,7 @@ int luaopen_sketchybar(lua_State* L) {
   snprintf(g_bootstrap_name, sizeof(g_bootstrap_name), MACH_HELPER_FMT,
                                                        (int)(intptr_t)L);
 
-  event_server_init(g_bootstrap_name);
+  mach_server_register(&g_mach_server, g_bootstrap_name);
   luaL_newlib(L, functions);
 
   lua_pushcfunction(L, subscribe);
@@ -741,6 +798,9 @@ int luaopen_sketchybar(lua_State* L) {
 
   lua_pushcfunction(L, exec);
   lua_setfield(L, -2, "exec");
+
+  lua_pushcfunction(L, delay);
+  lua_setfield(L, -2, "delay");
 
   return 1;
 }
