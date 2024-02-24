@@ -24,6 +24,7 @@ lua_State* g_state;
 #define HOTLOAD   "--hotload"
 #define TRIGGER   "--trigger"
 #define PUSH      "--push"
+#define REMOVE    "--remove"
 
 #define MACH_HELPER_FMT "git.lua.sketchybar%d"
 
@@ -101,6 +102,7 @@ static int transaction_create(lua_State* state) {
     g_cmd_len = 0;
     *g_cmd = '\0';
   }
+  return 0;
 }
 
 static int transaction_commit(lua_State* state) {
@@ -115,6 +117,7 @@ static int transaction_commit(lua_State* state) {
     g_cmd_len = 0;
     g_cmd = NULL;
   }
+  return 0;
 }
 
 int animate(lua_State* state) {
@@ -566,6 +569,21 @@ int add(lua_State* state) {
   return 1;
 }
 
+int remove_sbar(lua_State* state) {
+  if (lua_gettop(state) < 1) {
+    char error[] = "[Lua] Error: expecting at least one argument "
+                   "for 'remove'";
+    printf("%s\n", error);
+    return 0;
+  }
+
+  const char* name = get_name_from_state(state);
+  struct stack* stack = stack_create();
+  stack_init(stack);
+  stack_push(stack, name);
+  stack_push(stack, REMOVE);
+  sketchybar_call_log_and_cleanup(stack);
+  return 0;}
 
 static void orphan_check() {
   if (getppid() == 1) exit(0);
@@ -729,6 +747,7 @@ int delay(lua_State* state) {
 
 static const struct luaL_Reg functions[] = {
     { "add", add },
+    { "remove", remove_sbar },
     { "set", set },
     { "bar", bar },
     { "default", defaults },
@@ -772,6 +791,9 @@ int luaopen_sketchybar(lua_State* L) {
 
   lua_pushcfunction(L, add);
   lua_setfield(L, -2, "add");
+
+  lua_pushcfunction(L, remove_sbar);
+  lua_setfield(L, -2, "remove");
 
   lua_pushcfunction(L, event_loop);
   lua_setfield(L, -2, "update");
