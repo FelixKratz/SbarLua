@@ -79,10 +79,16 @@ static char* sketchybar(struct stack* stack) {
   char message_format[message_length + 1];
   memcpy(message_format, message, message_length);
   message_format[message_length] = '\0';
-  char* response = mach_send_message(g_port, message_format, message_length + 1);
+  char* response = mach_send_message(g_port,
+                                     message_format,
+                                     message_length + 1,
+                                     true               );
   if (!response) {
     g_port = mach_get_bs_port(g_bs_lookup);
-    response = mach_send_message(g_port, message_format, message_length + 1);
+    response = mach_send_message(g_port,
+                                 message_format,
+                                 message_length + 1,
+                                 true               );
   }
   return response;
 }
@@ -224,7 +230,26 @@ int bar(lua_State* state) {
   return 0;
 }
 
-void callback_function(env env) {
+void callback_function(char* message, size_t len) {
+  if (len > 1 + sizeof(int) && message && *message == '\x07') {
+    int callback_ref = 0;
+    memcpy(&callback_ref, message + 1, sizeof(int));
+    char* response = message + 1 + sizeof(int);
+    lua_rawgeti(g_state, LUA_REGISTRYINDEX, callback_ref);
+    if (!json_to_lua_table(g_state, response)) {
+      lua_pushstring(g_state, response);
+    }
+
+    transaction_create(g_state);
+    int error = lua_pcall(g_state, 1, 0, 0);
+
+    if (error && lua_gettop(g_state)) {
+      printf("[!] Lua: %s\n", lua_tostring(g_state, -1));
+    }
+    transaction_commit(g_state);
+    return;
+  }
+  env env = message;
   char* name = env_get_value_for_key(env, "NAME");
   char* sender = env_get_value_for_key(env, "SENDER");
 
@@ -684,19 +709,49 @@ int set_bar_name(lua_State* state) {
 int exec(lua_State* state) {
   if (lua_gettop(state) < 1
       || lua_type(state, 1) != LUA_TSTRING) {
-    char error[] = "[Lua] Error: expecting a string argument "
+    char error[] = "[Lua] Error: expecting a string as first argument "
                    "for 'exec'";
     printf("%s\n", error);
     return 0;
   }
 
+  int callback_ref = 0;
+  if (lua_gettop(state) > 1 && lua_type(state, 2) == LUA_TFUNCTION) {
+    lua_pushvalue(state, 2);
+    callback_ref = luaL_ref(state, LUA_REGISTRYINDEX);
+  }
   const char* command = lua_tostring(state, 1);
 
   int pid = fork();
   if (pid != 0) return 0;
 
-  char *exec[] = { "/usr/bin/env", "sh", "-c", (char*)command, NULL };
-  exit(execvp(exec[0], exec));
+  alarm(60);
+  if (!callback_ref) {
+    char *exec[] = { "/usr/bin/env", "sh", "-c", (char*)command, NULL };
+    exit(execvp(exec[0], exec));
+  } else {
+    FILE* file = popen(command, "r");
+    char* result = malloc(1024);
+    size_t read_bytes = 0;
+    size_t total_bytes = 0;
+    while ((read_bytes = fread(result + total_bytes, 1, 1024, file)) > 0) {
+      total_bytes += read_bytes;
+      result = realloc(result, total_bytes + 1024);
+    }
+    size_t message_size = total_bytes + sizeof(int) + sizeof(char);
+    char message[message_size];
+    message[0] = '\x07';
+    memcpy(message + 1, &callback_ref, sizeof(int));
+    memcpy(message + 1 + sizeof(int), result, total_bytes);
+
+    mach_send_message(mach_get_bs_port(g_bootstrap_name),
+                      message,
+                      message_size,
+                      false                              );
+
+    free(result);
+    exit(pclose(file));
+  }
 }
 
 void delay_callback(CFRunLoopTimerRef timer, void* context) {

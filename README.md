@@ -31,6 +31,25 @@ local sbar = require("sketchybar")
 ```
 and used to communicate with SketchyBar.
 
+## Important Remarks
+Calling shell functions using `os.execute` or `io.popen` should be avoided.
+This is because these functions will block the entire lua event handler thread.
+Instead use:
+```lua
+sbar.exec(<command>, [Optional: <lua_function>])
+```
+where the `<command>` can be any regular shell command. This function is truly
+async, which means that the command is executed without blocking the event
+thread. If you depend on the result of the `<command>` you can optionally
+specify a function as a completion handler, which will receive the result of
+the command as the first argument. Additionally, should the result have a JSON
+structure, it will be parsed into a LUA table. E.g.:
+```lua
+sbar.exec("sleep 5 && echo TEST", function(result)
+  print(result)
+end)
+```
+
 ## LUA API
 ### Bar Domain
 ```lua
