@@ -800,6 +800,21 @@ int delay(lua_State* state) {
   return 0;
 }
 
+static int os_execute_sig(lua_State *L) {
+  const char *cmd = luaL_optstring(L, 1, NULL);
+  int stat;
+  errno = 0;
+  signal(SIGCHLD, SIG_DFL);
+  stat = system(cmd);
+  signal(SIGCHLD, SIG_IGN);
+  if (cmd != NULL)
+    return luaL_execresult(L, stat);
+  else {
+    lua_pushboolean(L, stat);  /* true if there is a shell */
+    return 1;
+  }
+}
+
 static const struct luaL_Reg functions[] = {
     { "add", add },
     { "remove", remove_sbar },
@@ -828,7 +843,13 @@ int luaopen_sketchybar(lua_State* L) {
 
   signal(SIGCHLD, SIG_IGN);
   signal(SIGPIPE, SIG_IGN);
+
   mach_server_register(&g_mach_server, g_bootstrap_name);
+
+  lua_getglobal(L, "os");
+  lua_pushcfunction(L, os_execute_sig);
+  lua_setfield(L, -2, "execute");
+
   luaL_newlib(L, functions);
 
   lua_pushcfunction(L, subscribe);
