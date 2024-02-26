@@ -5,6 +5,8 @@
 #include <lualib.h>
 #include <CoreFoundation/CoreFoundation.h>
 #include <stdint.h>
+#include <signal.h>
+#include <sys/wait.h>
 
 #include "stack.h"
 
@@ -46,6 +48,8 @@ static char g_bootstrap_name[64];
 mach_port_t g_port = 0;
 uint32_t g_uid_counter;
 char g_bs_lookup[256] = "git.felix.sketchybar";
+
+struct sigaction sa;
 
 static char *luat_to_string(int type) {
   switch (type) {
@@ -124,6 +128,23 @@ static int transaction_commit(lua_State* state) {
     g_cmd = NULL;
   }
   return 0;
+}
+
+static void sigchld_handler(int sig) {
+  int saved_errno = errno;
+  while (waitpid((pid_t)(-1), 0, WNOHANG) > 0) {}
+  errno = saved_errno; // Restore errno
+}
+
+static void register_sigchld_handler(void) {
+  memset(&sa, 0, sizeof(sa));
+  sa.sa_handler = &sigchld_handler;
+  sigemptyset(&sa.sa_mask);
+  sa.sa_flags = SA_RESTART | SA_NOCLDSTOP;
+  if (sigaction(SIGCHLD, &sa, NULL) == -1) {
+    perror("sigaction");
+    exit(1);
+  }
 }
 
 int animate(lua_State* state) {
@@ -822,6 +843,8 @@ static const struct luaL_Reg functions[] = {
 };
 
 int luaopen_sketchybar(lua_State* L) {
+  register_sigchld_handler();
+
   memset(&g_callbacks, 0, sizeof(g_callbacks));
   snprintf(g_bootstrap_name, sizeof(g_bootstrap_name), MACH_HELPER_FMT,
                                                        (int)(intptr_t)L);
