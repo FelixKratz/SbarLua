@@ -826,6 +826,8 @@ int luaopen_sketchybar(lua_State* L) {
   snprintf(g_bootstrap_name, sizeof(g_bootstrap_name), MACH_HELPER_FMT,
                                                        (int)(intptr_t)L);
 
+  signal(SIGCHLD, SIG_IGN);
+  signal(SIGPIPE, SIG_IGN);
   mach_server_register(&g_mach_server, g_bootstrap_name);
   luaL_newlib(L, functions);
 
