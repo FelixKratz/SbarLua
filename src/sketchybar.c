@@ -386,9 +386,11 @@ int query(lua_State* state) {
   stack_init(stack);
   stack_push(stack, query);
   stack_push(stack, QUERY);
+  bool transaction_interrupted = g_cmd != NULL;
   transaction_commit(state);
   char* response = sketchybar(stack);
   stack_destroy(stack);
+  if (transaction_interrupted) transaction_create(state);
   if (response) {
     json_to_lua_table(state, response);
     free(response);
