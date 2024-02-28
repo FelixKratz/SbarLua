@@ -2,9 +2,9 @@ local colors = require("colors")
 
 local function mouse_click(env)
   if env.BUTTON == "right" then
-    os.execute("yabai -m space --destroy " .. env.SID .. " && sketchybar --trigger space_change")
+    sbar.exec("yabai -m space --destroy " .. env.SID)
   else
-    os.execute("yabai -m space --focus " .. env.SID)
+    sbar.exec("yabai -m space --focus " .. env.SID)
   end
 end
 
@@ -65,5 +65,5 @@ local space_creator = sbar.add("item", {
 })
 
 space_creator:subscribe("mouse.clicked", function(_)
-  os.execute("yabai -m space --create && sketchybar --trigger space_change")
+  sbar.exec("yabai -m space --create")
 end)

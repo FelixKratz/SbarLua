@@ -44,7 +44,7 @@ local volume_icon = sbar.add("item", {
 })
 
 volume_slider:subscribe("mouse.clicked", function(env)
-  os.execute("osascript -e 'set volume output volume " .. env["PERCENTAGE"] .. "'")
+  sbar.exec("osascript -e 'set volume output volume " .. env["PERCENTAGE"] .. "'")
 end)
 
 volume_slider:subscribe("volume_change", function(env)
