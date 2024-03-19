@@ -144,3 +144,12 @@ sbar = require("sketchybar")
 sbar.set_bar_name("bottom_bar")
 ```
 where `bottom_bar` is an example bar name.
+
+### JSON
+```lua
+local table = sbar.json_to_table(<json_string>)
+```
+where `<json_string>` is a string containing a JSON object. Functions provided
+by the Sketchybar LUA API will automatically parse JSON strings into LUA tables,
+but if you need to parse a JSON string into a LUA table manually, you can use
+this function.
