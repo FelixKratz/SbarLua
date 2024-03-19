@@ -399,6 +399,7 @@ int query(lua_State* state) {
 
   return 0;
 }
+
 void generate_uid(char* buffer) {
   snprintf(buffer, 64, "item_%d", g_uid_counter++);
 }
@@ -692,7 +693,6 @@ int trigger(lua_State *state) {
   return 0;
 }
 
-
 int set_bar_name(lua_State* state) {
   if (lua_gettop(state) < 1
       || lua_type(state, 1) != LUA_TSTRING) {
@@ -802,6 +802,19 @@ int delay(lua_State* state) {
   return 0;
 }
 
+int json_to_table(lua_State* state) {
+    if (lua_gettop(state) < 1
+        || lua_type(state, -1) != LUA_TSTRING) {
+        char error[] = "[Lua] Error: expecting a string as the only argument for 'json_to_table'";
+        printf("%s\n", error);
+        return 0;
+    }
+    
+    const char* json = lua_tostring(state, -1);
+    json_to_lua_table(state, json);
+    return 1;
+}
+
 static int os_execute_sig(lua_State *L) {
   const char *cmd = luaL_optstring(L, 1, NULL);
   int stat;
@@ -833,6 +846,7 @@ static const struct luaL_Reg functions[] = {
     { "push", push},
     { "exec", exec },
     { "delay", delay },
+    { "json_to_table", json_to_table },
     { "begin_config", transaction_create },
     { "end_config", transaction_commit },
     {NULL, NULL}
@@ -892,6 +906,9 @@ int luaopen_sketchybar(lua_State* L) {
 
   lua_pushcfunction(L, delay);
   lua_setfield(L, -2, "delay");
+
+  lua_pushcfunction(L, json_to_table);
+  lua_setfield(L, -2, "json_to_table");
 
   lua_pushcfunction(L, transaction_create);
   lua_setfield(L, -2, "begin_config");
