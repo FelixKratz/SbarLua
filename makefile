@@ -2,7 +2,7 @@ NAME=sketchybar
 CFLAGS=-std=c99 -O3 -g -shared -fPIC
 INSTALL_DIR=$(HOME)/.local/share/sketchybar_lua
 
-LUA_DIR=lua-5.4.4
+LUA_DIR=lua-5.4.7
 LIBS=-I$(LUA_DIR)/src -Lbin -llua -framework CoreFoundation
 
 bin/$(NAME).so: src/$(NAME).c src/*.c bin/liblua.a
