@@ -6,7 +6,12 @@
 # Your platform. See PLATS for possible values.
 PLAT= guess
 
-CC= gcc -std=gnu99
+ifeq ($(shell uname -sm),Darwin arm64)
+ CC= gcc -std=gnu99 -arch arm64
+else
+ CC= gcc -std=gnu99 -arch x86_64
+endif
+
 CFLAGS= -O2 -Wall -Wextra -DLUA_COMPAT_5_3 $(SYSCFLAGS) $(MYCFLAGS)
 LDFLAGS= $(SYSLDFLAGS) $(MYLDFLAGS)
 LIBS= -lm $(SYSLIBS) $(MYLIBS)
