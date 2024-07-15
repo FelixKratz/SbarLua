@@ -1,5 +1,6 @@
 .cache
 .DS_Store
+*.o
 compile_commands.json
 bin
 doc
