@@ -231,17 +231,20 @@ int bar(lua_State* state) {
 }
 
 void callback_function(char* message, size_t len) {
-  if (len > 1 + sizeof(int) && message && *message == '\x07') {
+  if (len >= 1 + 2*sizeof(int) && message && *message == '\x07') {
     int callback_ref = 0;
     memcpy(&callback_ref, message + 1, sizeof(int));
-    char* response = message + 1 + sizeof(int);
+    int exit_code = 0;
+    memcpy(&exit_code, message + 1 + sizeof(int), sizeof(int));
+    char* response = message + 1 + 2*sizeof(int);
     lua_rawgeti(g_state, LUA_REGISTRYINDEX, callback_ref);
     if (!json_to_lua_table(g_state, response)) {
       lua_pushstring(g_state, response);
     }
+    lua_pushinteger(g_state, exit_code);
 
     transaction_create(g_state);
-    int error = lua_pcall(g_state, 1, 0, 0);
+    int error = lua_pcall(g_state, 2, 0, 0);
 
     if (error && lua_gettop(g_state)) {
       printf("[!] Lua: %s\n", lua_tostring(g_state, -1));
@@ -740,11 +743,15 @@ int exec(lua_State* state) {
       total_bytes += read_bytes;
       result = realloc(result, total_bytes + 1024);
     }
-    size_t message_size = total_bytes + sizeof(int) + sizeof(char);
+    int close_ret = pclose(file);
+    int exit_code = WEXITSTATUS(close_ret);
+
+    size_t message_size = total_bytes + 2*sizeof(int) + sizeof(char);
     char message[message_size];
     message[0] = '\x07';
     memcpy(message + 1, &callback_ref, sizeof(int));
-    memcpy(message + 1 + sizeof(int), result, total_bytes);
+    memcpy(message + 1 + sizeof(int), &exit_code, sizeof(int));
+    memcpy(message + 1 + 2*sizeof(int), result, total_bytes);
 
     mach_send_message(mach_get_bs_port(g_bootstrap_name),
                       message,
@@ -752,7 +759,7 @@ int exec(lua_State* state) {
                       false                              );
 
     free(result);
-    exit(pclose(file));
+    exit(close_ret);
   }
 }
 

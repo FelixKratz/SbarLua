@@ -45,7 +45,7 @@ specify a function as a completion handler, which will receive the result of
 the command as the first argument. Additionally, should the result have a JSON
 structure, it will be parsed into a LUA table. E.g.:
 ```lua
-sbar.exec("sleep 5 && echo TEST", function(result)
+sbar.exec("sleep 5 && echo TEST", function(result, exit_code)
   print(result)
 end)
 ```
