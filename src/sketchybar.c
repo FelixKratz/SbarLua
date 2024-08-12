@@ -846,6 +846,7 @@ static const struct luaL_Reg functions[] = {
 };
 
 int luaopen_sketchybar(lua_State* L) {
+  g_state = L;
   memset(&g_callbacks, 0, sizeof(g_callbacks));
   snprintf(g_bootstrap_name, sizeof(g_bootstrap_name), MACH_HELPER_FMT,
                                                        (int)(intptr_t)L);
