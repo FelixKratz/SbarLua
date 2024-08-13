@@ -136,7 +136,7 @@ You can push values to a `graph` with the push domain. The `float` values of
 the table should be between 0 and 1.
 
 ### Multiple Bars
-If you are using muliple sketchybar instances, you can target the lua module to
+If you are using multiple sketchybar instances, you can target the lua module to
 interact with another sketchybar instance by providing the instance name right
 after requiring the module like this:
 ```bash
