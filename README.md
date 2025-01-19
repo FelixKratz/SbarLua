@@ -60,11 +60,12 @@ overlays = [
 ];
 ```
 
-Finally add `pkgs.sbarlua.sbarlua` to your system packages like this:
+Finally add `pkgs.sbarlua.sbarlua` and `lua54Packages.lua` to your system packages like this:
 
 ```nix
 environment.systemPackages = [
     pkgs.sbarlua.sbarlua
+    pkgs.lua54Packages.lua # make sure to use this version of lua otherwise this won't work
 ];
 ```
 
