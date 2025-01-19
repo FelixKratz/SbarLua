@@ -47,7 +47,7 @@ Add this to your `flake.nix`:
 inputs.sbarlua = {
     url = "github:FelixKratz/SbarLua";
     nixpkgs.follows = "nixpkgs";
-}
+};
 ```
 
 Afterwards add this to your darwinConfiguration:
@@ -82,7 +82,7 @@ A minimal flake.nix containing SbarLua might look like this:
 
     inputs.sbarlua = {
       url = "github:FelixKratz/SbarLua";
-      nixpkgs.follows = "nixpkgs";
+      inputs.nixpkgs.follows = "nixpkgs";
     }
   };
 

@@ -3,5 +3,5 @@
 }:
 
 {
-  sbar-lua = pkgs.callPackage ./pkgs/sbar-lua { };
+  sbarlua = pkgs.callPackage ./pkgs/sbarlua.nix { };
 }
