@@ -1,12 +1,14 @@
 {
-  pkgs,
+  gcc,
+  readline,
+  darwin,
   lib,
   stdenv,
   fetchFromGitHub,
 }:
 stdenv.mkDerivation {
   pname = "sbar-lua";
-  version = "unstable-2024-08-12";
+  version = "unstable-2025-01-20";
 
   src = fetchFromGitHub {
     owner = "FelixKratz";
@@ -15,15 +17,11 @@ stdenv.mkDerivation {
     hash = "sha256-F0UfNxHM389GhiPQ6/GFbeKQq5EvpiqQdvyf7ygzkPg=";
   };
 
-  buildInputs =
-    with pkgs;
-    [
-      gcc
-      readline
-    ]
-    ++ lib.optionals stdenv.hostPlatform.isDarwin [
-      darwin.apple_sdk.frameworks.CoreFoundation
-    ];
+  buildInputs = [
+    gcc
+    readline
+    darwin.apple_sdk.frameworks.CoreFoundation
+  ];
 
   buildPhase = ''
     make bin/sketchybar.so
@@ -38,7 +36,7 @@ stdenv.mkDerivation {
     description = "A Lua API for SketchyBar";
     homepage = "git@github.com:FelixKratz/SbarLua.git";
     license = lib.licenses.gpl3Only;
-    maintainers = with lib.maintainers; [ davsanchez ];
+    maintainers = with lib.maintainers; [ lalit64 ];
     mainProgram = "sbar-lua";
     platforms = lib.platforms.darwin;
   };
