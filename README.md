@@ -39,7 +39,7 @@ and used to communicate with SketchyBar.
 
 ## Using with [nix-darwin](https://github.com/LnL7/nix-darwin)
 
-You can install Stylix into your nix-darwin configuration via Flakes.
+You can install SbarLua into your nix-darwin configuration via Flakes.
 Add this to your `flake.nix`:
 
 ```nix
@@ -81,13 +81,13 @@ A minimal flake.nix containing SbarLua might look like this:
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
-    inputs.sbarlua = {
+    sbarlua = {
       url = "github:FelixKratz/SbarLua";
       inputs.nixpkgs.follows = "nixpkgs";
     }
   };
 
-  outputs = { darwin, nixpkgs, stylix, ... }: {
+  outputs = { darwin, nixpkgs, sbarlua, ... }: {
     darwinConfigurations.nix-darwin = darwin.lib.darwinSystem {
       system = "aarch64-darwin";
       pkgs = import inputs.nixpkgs {

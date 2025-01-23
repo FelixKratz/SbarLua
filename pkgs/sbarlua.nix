@@ -36,7 +36,10 @@ stdenv.mkDerivation {
     description = "A Lua API for SketchyBar";
     homepage = "git@github.com:FelixKratz/SbarLua.git";
     license = lib.licenses.gpl3Only;
-    maintainers = with lib.maintainers; [ lalit64 ];
+    maintainers = with lib.maintainers; [
+      lalit64
+      amusingimpala75
+    ];
     mainProgram = "sbar-lua";
     platforms = lib.platforms.darwin;
   };
