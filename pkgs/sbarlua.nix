@@ -40,7 +40,7 @@ stdenv.mkDerivation {
       lalit64
       amusingimpala75
     ];
-    mainProgram = "sbar-lua";
+    mainProgram = "sbarlua";
     platforms = lib.platforms.darwin;
   };
 }

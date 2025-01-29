@@ -16,7 +16,7 @@ This code in this repository compiles into a lua module which can be
 required from any lua script.
 
 Install and update it with the command (this will build the lua module from
-source and place it in `$USER/.local/share/sketchybar_lua/`):
+source and place it in `$HOME/.local/share/sketchybar_lua/`):
 
 ```bash
 (git clone https://github.com/FelixKratz/SbarLua.git /tmp/SbarLua && cd /tmp/SbarLua/ && make install && rm -rf /tmp/SbarLua/)
@@ -232,7 +232,7 @@ the table should be between 0 and 1.
 
 ### Multiple Bars
 
-If you are using muliple sketchybar instances, you can target the lua module to
+If you are using multiple sketchybar instances, you can target the lua module to
 interact with another sketchybar instance by providing the instance name right
 after requiring the module like this:
 
