@@ -20,5 +20,8 @@
       packages = forAllSystems (
         system: nixpkgs.lib.filterAttrs (_: v: nixpkgs.lib.isDerivation v) self.legacyPackages.${system}
       );
+      overlay = (final: prev: {
+        sbarlua = self.packages."${prev.system}".sbarlua;
+      });
     };
 }

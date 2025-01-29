@@ -40,13 +40,15 @@ and used to communicate with SketchyBar.
 ## Using with [nix-darwin](https://github.com/LnL7/nix-darwin)
 
 You can install SbarLua into your nix-darwin configuration via Flakes.
-Add this to your `flake.nix`:
+Add `sbarlua` to your inputs in your `flake.nix` like so:
 
 ```nix
 # make sure you are using nixpkgs-unstable
-inputs.sbarlua = {
-    url = "github:FelixKratz/SbarLua";
-    nixpkgs.follows = "nixpkgs";
+inputs = {
+    sbarlua = {
+        url = "github:FelixKratz/SbarLua";
+        inputs.nixpkgs.follows = "nixpkgs";
+    };
 };
 ```
 
@@ -54,9 +56,7 @@ Afterwards add this to your darwinConfiguration:
 
 ```nix
 overlays = [
-    (final: prev: {
-    sbarlua = inputs.sbarlua.packages."${prev.system}";
-    })
+    sbarlua.overlay
 ];
 ```
 
@@ -64,7 +64,7 @@ Finally add `pkgs.sbarlua.sbarlua` and `lua54Packages.lua` to your system packag
 
 ```nix
 environment.systemPackages = [
-    pkgs.sbarlua.sbarlua
+    pkgs.sbarlua
     pkgs.lua54Packages.lua # make sure to use this version of lua otherwise this won't work
 ];
 ```
@@ -90,15 +90,14 @@ A minimal flake.nix containing SbarLua might look like this:
   outputs = { darwin, nixpkgs, sbarlua, ... }: {
     darwinConfigurations.nix-darwin = darwin.lib.darwinSystem {
       system = "aarch64-darwin";
-      pkgs = import inputs.nixpkgs {
+      pkgs = import nixpkgs {
         overlays = [
-          (final: prev: {
-            sbarlua = inputs.sbarlua.packages."${prev.system}";
-          })
+           sbarlua.overlay
         ];
       }
       environments.systemPackages = [
-        pkgs.sbarlua.sbarlua
+        pkgs.sbarlua
+        pkgs.lua54Packages.lua
       ]
     };
   };

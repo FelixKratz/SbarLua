@@ -3,29 +3,21 @@
   readline,
   darwin,
   lib,
-  stdenv,
-  fetchFromGitHub,
+  lua54Packages,
 }:
-stdenv.mkDerivation {
-  pname = "sbar-lua";
+
+lua54Packages.buildLuaPackage {
+  name = "sbarlua";
+  pname = "sbarlua";
   version = "unstable-2025-01-20";
 
-  src = fetchFromGitHub {
-    owner = "FelixKratz";
-    repo = "SbarLua";
-    rev = "437bd2031da38ccda75827cb7548e7baa4aa9978";
-    hash = "sha256-F0UfNxHM389GhiPQ6/GFbeKQq5EvpiqQdvyf7ygzkPg=";
-  };
+  src = ../.;
 
   buildInputs = [
     gcc
     readline
     darwin.apple_sdk.frameworks.CoreFoundation
   ];
-
-  buildPhase = ''
-    make bin/sketchybar.so
-  '';
 
   installPhase = ''
     mkdir -p $out/lib
