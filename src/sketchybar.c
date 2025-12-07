@@ -25,6 +25,7 @@ lua_State* g_state;
 #define TRIGGER   "--trigger"
 #define PUSH      "--push"
 #define REMOVE    "--remove"
+#define MOVE      "--move"
 
 #define MACH_HELPER_FMT "git.lua.sketchybar%d"
 
@@ -423,7 +424,7 @@ int push(lua_State *state) {
     printf("%s. Found '%s'\n", error, luat_to_string(lua_type(state, 2)));
   }
 
-  // Technically this method will work regardless, so all we need to do 
+  // Technically this method will work regardless, so all we need to do
   // is ensure a valid input state before we reach this part:
   struct stack *stack = stack_create();
   stack_init(stack);
@@ -435,6 +436,38 @@ int push(lua_State *state) {
   stack_push(stack, PUSH);
   sketchybar_call_log_and_cleanup(stack);
 
+  return 0;
+}
+
+int move(lua_State* state) {
+  if (lua_gettop(state) < 3 || lua_type(state, 2) != LUA_TSTRING) {
+    char error[] = "[Lua] Error: move expects (item, direction, reference_item)";
+    printf("%s\n", error);
+    return 0;
+  }
+
+  struct stack* stack = stack_create();
+  stack_init(stack);
+
+  const char* item_name = get_name_from_state(state);
+  const char* direction = lua_tostring(state, 2);
+
+  // Get reference item name (arg3)
+  const char* ref_name;
+  if (lua_type(state, 3) == LUA_TTABLE) {
+    lua_getfield(state, 3, "name");
+    ref_name = lua_tostring(state, -1);
+  } else {
+    ref_name = lua_tostring(state, 3);
+  }
+
+  // Build command: --move <item> before/after <reference>
+  stack_push(stack, ref_name);
+  stack_push(stack, direction);
+  stack_push(stack, item_name);
+  stack_push(stack, MOVE);
+
+  sketchybar_call_log_and_cleanup(stack);
   return 0;
 }
 
@@ -596,6 +629,9 @@ int add(lua_State* state) {
   lua_pushstring(state, "push");
   lua_pushcfunction(state, push);
   lua_settable(state,-3);
+  lua_pushstring(state, "move");
+  lua_pushcfunction(state, move);
+  lua_settable(state,-3);
   return 1;
 }
 
@@ -613,7 +649,8 @@ int remove_sbar(lua_State* state) {
   stack_push(stack, name);
   stack_push(stack, REMOVE);
   sketchybar_call_log_and_cleanup(stack);
-  return 0;}
+  return 0;
+}
 
 static void orphan_check() {
   if (getppid() == 1) exit(0);
@@ -838,6 +875,7 @@ static const struct luaL_Reg functions[] = {
     { "set_bar_name", set_bar_name },
     { "trigger", trigger },
     { "push", push},
+    { "move", move },
     { "exec", exec },
     { "delay", delay },
     { "begin_config", transaction_create },
@@ -894,6 +932,9 @@ int luaopen_sketchybar(lua_State* L) {
 
   lua_pushcfunction(L, push);
   lua_setfield(L, -2, "push");
+
+  lua_pushcfunction(L, move);
+  lua_setfield(L, -2, "move");
 
   lua_pushcfunction(L, exec);
   lua_setfield(L, -2, "exec");
