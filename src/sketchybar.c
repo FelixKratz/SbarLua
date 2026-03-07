@@ -730,6 +730,8 @@ int exec(lua_State* state) {
   int pid = fork();
   if (pid != 0) return 0;
 
+  signal(SIGCHLD, SIG_DFL);
+
   alarm(60);
   if (!callback_ref) {
     char *exec[] = { "/usr/bin/env", "sh", "-c", (char*)command, NULL };
