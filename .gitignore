@@ -4,3 +4,5 @@
 compile_commands.json
 bin
 doc
+lua-5.4.7/src/lua
+lua-5.4.7/src/luac

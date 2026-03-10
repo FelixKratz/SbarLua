@@ -135,6 +135,27 @@ graph:push(<float_table>)
 You can push values to a `graph` with the push domain. The `float` values of
 the table should be between 0 and 1.
 
+### Move Domain
+```lua
+item:move(<direction>, <reference_item>)
+sbar.move(<item_name>, <direction>, <reference_name>)
+```
+Reposition items relative to other items. The `<direction>` parameter should be
+either `"before"` or `"after"`. The `<reference_item>` can be either an item
+table returned from `sbar.add()` or a string name of an existing item.
+
+Example:
+```lua
+local calendar = sbar.add("item", "calendar", { label = "📅" })
+local clock = sbar.add("item", "clock", { label = "🕐" })
+
+-- Move calendar to appear after clock
+calendar:move("after", clock)
+
+-- Or using module function
+sbar.move("calendar", "before", "clock")
+```
+
 ### Multiple Bars
 If you are using muliple sketchybar instances, you can target the lua module to
 interact with another sketchybar instance by providing the instance name right
