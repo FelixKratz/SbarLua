@@ -42,6 +42,7 @@ struct callbacks {
 struct callbacks g_callbacks;
 static char* g_cmd = NULL;
 static uint32_t g_cmd_len = 0;
+static uint32_t g_transaction_depth = 0;
 static char g_bootstrap_name[64];
 mach_port_t g_port = 0;
 uint32_t g_uid_counter;
@@ -102,28 +103,82 @@ static void sketchybar_call_log_and_cleanup(struct stack* stack) {
   stack_destroy(stack);
 }
 
-static int transaction_create(lua_State* state) {
+// Opens (or keeps) the shared command buffer that batches commands
+// until the enclosing transaction commits.
+static void transaction_open(void) {
   if (!g_cmd) {
     g_cmd = malloc(1);
     g_cmd_len = 0;
     *g_cmd = '\0';
   }
-  return 0;
 }
 
-static int transaction_commit(lua_State* state) {
-  char* response = NULL;
-  if (g_cmd) {
-    response = sketchybar(NULL);
-    free(g_cmd);
+// Sends whatever is buffered as a single message and clears it,
+// regardless of the current nesting depth. An empty buffer is dropped
+// without a send, so a no-op transaction never emits a stray message.
+static void transaction_flush(void) {
+  if (!g_cmd) return;
+  if (g_cmd_len > 0) {
+    char* response = sketchybar(NULL);
     if (response) {
       if (strlen(response) > 0) printf("[i] sketchybar: %s\n", response);
       free(response);
     }
-    g_cmd_len = 0;
-    g_cmd = NULL;
   }
+  free(g_cmd);
+  g_cmd_len = 0;
+  g_cmd = NULL;
+}
+
+static int transaction_create(lua_State* state) {
+  transaction_open();
+  g_transaction_depth++;
   return 0;
+}
+
+static int transaction_commit(lua_State* state) {
+  // Transactions are opened implicitly by event callbacks, animate
+  // and delay as well as explicitly via begin_config/end_config, all
+  // sharing one command buffer. Only the outermost commit may flush,
+  // so a nested begin_config/end_config (e.g. a delayed item loader
+  // that runs inside a subscribe handler) cannot tear the buffer out
+  // from under the enclosing transaction and split its message.
+  if (g_transaction_depth > 0) g_transaction_depth--;
+  if (g_transaction_depth > 0) return 0;
+  transaction_flush();
+  return 0;
+}
+
+// Establishes a clean, single-level transaction at a top-level runloop
+// entry point (event and timer callbacks). Such callbacks cannot nest
+// — the runloop never spins while a Lua pcall is on the stack — so the
+// depth here is authoritative. Forcing it means a Lua error or an
+// unbalanced begin_config raised inside the handler cannot leak depth
+// and permanently wedge batching for every later callback; the old
+// unconditional-flush code was self-healing and this preserves that.
+static void transaction_enter(void) {
+  g_transaction_depth = 1;
+  transaction_open();
+}
+
+static void transaction_leave(void) {
+  g_transaction_depth = 0;
+  transaction_flush();
+}
+
+// Suspends any in-progress transaction so an isolated message can be
+// sent: an --animate directive scopes to the rest of its message, and
+// a query must observe the commands issued before it. Depth-neutral —
+// the caller's nesting level is left untouched — so it MUST be paired
+// with transaction_resume. Returns whether a transaction was open.
+static bool transaction_suspend(void) {
+  bool was_open = g_cmd != NULL;
+  transaction_flush();
+  return was_open;
+}
+
+static void transaction_resume(bool was_open) {
+  if (was_open) transaction_open();
 }
 
 int animate(lua_State* state) {
@@ -141,7 +196,12 @@ int animate(lua_State* state) {
   snprintf(duration_str, 4, "%d", duration);
   const char* interp = lua_tostring(state, -3);
 
-  transaction_create(state);
+  // An animation must travel as its own message (the "--animate"
+  // directive applies to every set that follows it in the message),
+  // so suspend any enclosing transaction, build the animation in an
+  // isolated buffer, flush it, then resume the enclosing transaction.
+  bool suspended = transaction_suspend();
+  transaction_open();
 
   struct stack* stack = stack_create();
   stack_init(stack);
@@ -151,12 +211,19 @@ int animate(lua_State* state) {
 
   sketchybar_call_log_and_cleanup(stack);
 
+  // Absorb any depth imbalance the animation callback leaves behind
+  // (e.g. a begin_config without a matching end_config, or a raised
+  // error) so animate stays depth-transparent to its caller.
+  uint32_t saved_depth = g_transaction_depth;
   int error = lua_pcall(state, 0, 0, 0);
+  g_transaction_depth = saved_depth;
 
   if (error && lua_gettop(state)) {
     printf("[!] Lua: %s\n", lua_tostring(state, -1));
   }
-  transaction_commit(state);
+  transaction_flush();
+
+  transaction_resume(suspended);
   return 0;
 }
 
@@ -243,13 +310,13 @@ void callback_function(char* message, size_t len) {
     }
     lua_pushinteger(g_state, exit_code);
 
-    transaction_create(g_state);
+    transaction_enter();
     int error = lua_pcall(g_state, 2, 0, 0);
 
     if (error && lua_gettop(g_state)) {
       printf("[!] Lua: %s\n", lua_tostring(g_state, -1));
     }
-    transaction_commit(g_state);
+    transaction_leave();
     return;
   }
   env env = message;
@@ -277,13 +344,13 @@ void callback_function(char* message, size_t len) {
         }
       } while(kv.key && kv.value);
 
-      transaction_create(g_state);
+      transaction_enter();
       int error = lua_pcall(g_state, 1, 0, 0);
 
       if (error && lua_gettop(g_state)) {
         printf("[!] Lua: %s\n", lua_tostring(g_state, -1));
       }
-      transaction_commit(g_state);
+      transaction_leave();
       break;
     }
   }
@@ -389,11 +456,12 @@ int query(lua_State* state) {
   stack_init(stack);
   stack_push(stack, query);
   stack_push(stack, QUERY);
-  bool transaction_interrupted = g_cmd != NULL;
-  transaction_commit(state);
+  // A query must observe the commands issued before it, so suspend
+  // any pending transaction, send the query, then resume batching.
+  bool suspended = transaction_suspend();
   char* response = sketchybar(stack);
   stack_destroy(stack);
-  if (transaction_interrupted) transaction_create(state);
+  transaction_resume(suspended);
   if (response) {
     json_to_lua_table(state, response);
     free(response);
@@ -767,14 +835,14 @@ void delay_callback(CFRunLoopTimerRef timer, void* context) {
   int callback_ref = (int)(intptr_t)context;
 
   lua_rawgeti(g_state, LUA_REGISTRYINDEX, callback_ref);
-  transaction_create(g_state);
+  transaction_enter();
   int error = lua_pcall(g_state, 0, 0, 0);
 
   if (error && lua_gettop(g_state)) {
     printf("[!] Lua: %s\n", lua_tostring(g_state, -1));
   }
 
-  transaction_commit(g_state);
+  transaction_leave();
 }
 
 int delay(lua_State* state) {
