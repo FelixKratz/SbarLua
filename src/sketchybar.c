@@ -258,6 +258,17 @@ int set(lua_State* state) {
 
   parse_kv_table(state, NULL, stack);
 
+  // A property table with no scalar values (e.g. `{ background = {} }`,
+  // common when adding a bracket) yields zero key=value pairs. Emitting
+  // a property-less "--set <name>" makes the daemon consume the tokens
+  // of the *next* command looking for a key=value, desyncing its parser
+  // and spamming "Expected <key>=<value>" errors. There is nothing to
+  // set, so skip the command entirely.
+  if (stack->num_values == 0) {
+    stack_destroy(stack);
+    return 0;
+  }
+
   stack_push(stack, name);
   stack_push(stack, SET);
   sketchybar_call_log_and_cleanup(stack);
