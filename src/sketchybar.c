@@ -4,7 +4,11 @@
 #include <lua.h>
 #include <lualib.h>
 #include <CoreFoundation/CoreFoundation.h>
+#include <errno.h>
+#include <fcntl.h>
+#include <signal.h>
 #include <stdint.h>
+#include <unistd.h>
 
 #include "stack.h"
 
@@ -813,15 +817,80 @@ static int os_execute_sig(lua_State *L) {
   const char *cmd = luaL_optstring(L, 1, NULL);
   int stat;
   errno = 0;
-  signal(SIGCHLD, SIG_DFL);
-  stat = system(cmd);
-  signal(SIGCHLD, SIG_IGN);
-  if (cmd != NULL)
-    return luaL_execresult(L, stat);
-  else {
+
+  if (cmd == NULL) {
+    /* system(NULL) only probes for a shell and spawns nothing that needs
+     * reaping, so it is safe while SIGCHLD is SIG_IGN. */
+    stat = system(NULL);
     lua_pushboolean(L, stat);  /* true if there is a shell */
     return 1;
   }
+
+  /* system() must wait for its child, which cannot work while SIGCHLD is
+   * SIG_IGN (the disposition exec() relies on for kernel auto-reaping).
+   * Temporarily resetting the disposition here — the previous approach —
+   * opens a window in which any concurrently exiting exec() child is never
+   * reaped and becomes a permanent zombie; with periodic sbar.exec traffic
+   * these accumulate until kern.maxprocperuid is exhausted and every fork
+   * on the host fails (issue #12). Instead, run system() in a forked
+   * helper: the helper resets SIGCHLD for itself only, reports the status
+   * back over a pipe, and is collected by the parent's auto-reap. The
+   * parent never waits and its signal disposition never changes. */
+  int fds[2];
+  if (pipe(fds) < 0) return luaL_execresult(L, -1);
+  /* Keep the pipe out of the commands system() execs; the forked helper
+   * itself never execs, so it retains the write end. */
+  (void)fcntl(fds[0], F_SETFD, FD_CLOEXEC);
+  (void)fcntl(fds[1], F_SETFD, FD_CLOEXEC);
+
+  /* POSIX system() ignores SIGINT and SIGQUIT in the caller while the
+   * command runs; system() now runs in the helper, so mirror that
+   * shielding here. The spawned shell still receives default dispositions
+   * (Darwin system() spawns it with POSIX_SPAWN_SETSIGDEF for both). */
+  void (*old_int)(int) = signal(SIGINT, SIG_IGN);
+  void (*old_quit)(int) = signal(SIGQUIT, SIG_IGN);
+
+  pid_t pid = fork();
+  if (pid < 0) {
+    int fork_errno = errno;
+    close(fds[0]);
+    close(fds[1]);
+    signal(SIGINT, old_int);
+    signal(SIGQUIT, old_quit);
+    errno = fork_errno;
+    return luaL_execresult(L, -1);
+  }
+
+  if (pid == 0) {
+    close(fds[0]);
+    signal(SIGCHLD, SIG_DFL);
+    errno = 0;
+    int payload[2];
+    payload[0] = system(cmd);
+    payload[1] = errno;
+    ssize_t written = write(fds[1], payload, sizeof(payload));
+    _exit(written == sizeof(payload) ? 0 : 1);
+  }
+
+  close(fds[1]);
+  int payload[2] = { -1, ECHILD };
+  ssize_t bytes_read;
+  do {
+    bytes_read = read(fds[0], payload, sizeof(payload));
+  } while (bytes_read < 0 && errno == EINTR);
+  int read_errno = errno;
+  close(fds[0]);
+  signal(SIGINT, old_int);
+  signal(SIGQUIT, old_quit);
+
+  if (bytes_read == sizeof(payload)) {
+    stat = payload[0];
+    errno = payload[1];
+  } else {
+    stat = -1;
+    errno = bytes_read < 0 ? read_errno : ECHILD;
+  }
+  return luaL_execresult(L, stat);
 }
 
 static const struct luaL_Reg functions[] = {
